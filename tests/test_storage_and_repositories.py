@@ -32,8 +32,9 @@ from src.storage.repositories.notes_repo import NoteRepository
 
 @pytest.fixture
 def test_db():
-    with tempfile.NamedTemporaryFile(suffix=".db") as tmp:
-        db = Database(db_path=tmp.name)
+    with tempfile.TemporaryDirectory() as td:
+        db_path = str(Path(td) / "test.db")
+        db = Database(db_path=db_path)
         yield db
 
 

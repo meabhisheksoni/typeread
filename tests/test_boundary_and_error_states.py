@@ -45,17 +45,17 @@ def test_empty_file_import_error():
 
 def test_scanned_pdf_ocr_required():
     """Verify that a PDF containing 0 extractable text raises OCR_REQUIRED."""
-    doc = fitz.open()
-    doc.new_page()  # Blank page without text
-    with tempfile.NamedTemporaryFile("wb", suffix=".pdf", delete=False) as f:
-        doc.save(f.name)
-        pdf_path = f.name
-    doc.close()
+    with tempfile.TemporaryDirectory() as td:
+        pdf_path = os.path.join(td, "blank.pdf")
+        doc = fitz.open()
+        doc.new_page()  # Blank page without text
+        doc.save(pdf_path)
+        doc.close()
 
-    with pytest.raises(AppErrorException) as exc_info:
-        DocumentParserRegistry.parse(pdf_path)
-    assert exc_info.value.code == ErrorCode.OCR_REQUIRED
-    assert exc_info.value.status_code == 422
+        with pytest.raises(AppErrorException) as exc_info:
+            DocumentParserRegistry.parse(pdf_path)
+        assert exc_info.value.code == ErrorCode.OCR_REQUIRED
+        assert exc_info.value.status_code == 422
 
 
 def test_nonexistent_file_import_error():
@@ -69,25 +69,27 @@ def test_nonexistent_file_import_error():
 
 def test_unsupported_format_error():
     """Verify that unsupported extensions raise UNSUPPORTED_FORMAT."""
-    with tempfile.NamedTemporaryFile("w", suffix=".exe", delete=False) as f:
-        f.write("Binary executable dummy")
-        path = f.name
+    with tempfile.TemporaryDirectory() as td:
+        path = os.path.join(td, "bad.exe")
+        with open(path, "w") as f:
+            f.write("Binary executable dummy")
 
-    with pytest.raises(AppErrorException) as exc_info:
-        DocumentParserRegistry.parse(path)
-    assert exc_info.value.code == ErrorCode.UNSUPPORTED_FORMAT
-    assert exc_info.value.status_code == 400
+        with pytest.raises(AppErrorException) as exc_info:
+            DocumentParserRegistry.parse(path)
+        assert exc_info.value.code == ErrorCode.UNSUPPORTED_FORMAT
+        assert exc_info.value.status_code == 400
 
 
 def test_corrupted_pdf_file_error():
     """Verify that invalid/corrupted binary content in a .pdf file raises CORRUPTED_DOCUMENT or PARSING_FAILED."""
-    with tempfile.NamedTemporaryFile("wb", suffix=".pdf", delete=False) as f:
-        f.write(b"%PDF-1.4\nGARBAGE_CORRUPTED_BYTES_NOT_A_VALID_PDF_STRUCTURE\n%%EOF")
-        path = f.name
+    with tempfile.TemporaryDirectory() as td:
+        path = os.path.join(td, "corrupt.pdf")
+        with open(path, "wb") as f:
+            f.write(b"%PDF-1.4\nGARBAGE_CORRUPTED_BYTES_NOT_A_VALID_PDF_STRUCTURE\n%%EOF")
 
-    with pytest.raises(AppErrorException) as exc_info:
-        DocumentParserRegistry.parse(path)
-    assert exc_info.value.code in (ErrorCode.CORRUPTED_DOCUMENT, ErrorCode.PARSING_FAILED)
+        with pytest.raises(AppErrorException) as exc_info:
+            DocumentParserRegistry.parse(path)
+        assert exc_info.value.code in (ErrorCode.CORRUPTED_DOCUMENT, ErrorCode.PARSING_FAILED)
 
 
 def test_dispatcher_unknown_route_404(app_instance):
