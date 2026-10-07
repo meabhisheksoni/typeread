@@ -1,0 +1,29 @@
+# Cloud Shell home directory files
+.*
+!.gitignore
+!.github/
+!.orchestrator/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+.eggs/
+*.tar.gz
+*.zip
+!sample_book.txt
+node_modules/
+.venv/
+env/
+venv/
+*.log
+launch_web_gui.sh
+agentic-orchestrator/
+README-cloudshell.txt

@@ -1,0 +1,2453 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TypeRead Core Service & IPC API Contract",
+    "version": "1.0.0",
+    "description": "Formal contract defining commands, queries, payload schemas, exact status codes, and error models for TypeRead offline desktop application. Adheres to strict anti-slop rules: zero vague types, explicit enums, invariant assertions."
+  },
+  "servers": [
+    {
+      "url": "typeread://ipc",
+      "description": "Internal PySide6 QThread / In-Process Service Dispatcher"
+    },
+    {
+      "url": "http://127.0.0.1:8765/api/v1",
+      "description": "Localhost Bridge (Headless Integration & Test Suite)"
+    }
+  ],
+  "paths": {
+    "/documents/import": {
+      "post": {
+        "summary": "Import and preview a local document",
+        "operationId": "importDocument",
+        "description": "Runs validation, format detection, text extraction, normalization, and heuristic structure detection. Returns an IngestionPreview without persisting to the final library.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportDocumentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Document parsed successfully, preview ready for user review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestionPreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid file path, unsupported format, or empty document",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Document with identical SHA-256 hash already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Scanned PDF requiring OCR or parsing corrupted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{documentId}/commit": {
+      "post": {
+        "summary": "Commit imported document with optional structure edits",
+        "operationId": "commitDocument",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StructureUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Document committed to local library and indexed in FTS5",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentEntity"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid structure update request or dangling node hierarchy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Staged preview document not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents": {
+      "get": {
+        "summary": "List library documents",
+        "operationId": "listDocuments",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/IngestionStatus"
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["recent", "title", "author", "progress", "created_at"],
+              "default": "recent"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 100
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of library document summaries with progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["total", "items"],
+                  "properties": {
+                    "total": {
+                      "type": "integer"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DocumentLibraryCard"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{documentId}": {
+      "get": {
+        "summary": "Get document detail",
+        "operationId": "getDocument",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Document detail entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentEntity"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Document not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete document and associated files",
+        "operationId": "deleteDocument",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Document deleted successfully"
+          },
+          "404": {
+            "description": "Document not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{documentId}/structure": {
+      "get": {
+        "summary": "Get full document structural tree",
+        "operationId": "getDocumentStructure",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Nested chapters, sections, and paragraph metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentStructureTree"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Document not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update document structure (headings, titles, orders)",
+        "operationId": "updateDocumentStructure",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StructureUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Structure updated successfully"
+          },
+          "400": {
+            "description": "Invalid structure parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Document not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{documentId}/exclusions": {
+      "patch": {
+        "summary": "Toggle practice inclusion for chapters or sections",
+        "operationId": "updateExclusions",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExclusionUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Exclusions successfully updated"
+          },
+          "404": {
+            "description": "Document or target nodes not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{documentId}/sections/{sectionId}/content": {
+      "get": {
+        "summary": "Fetch section text representations and offset mappings",
+        "operationId": "getSectionContent",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/TypingMode",
+              "default": "standard"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paragraph representations and offset maps for practice",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectionContentResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Document or Section not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{documentId}/progress": {
+      "get": {
+        "summary": "Get exact reading & typing progress pointer",
+        "operationId": "getDocumentProgress",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reading progress entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadingProgressEntity"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Document or progress record not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update / autosave reading & typing progress pointer",
+        "operationId": "updateDocumentProgress",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadingPositionPointer"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Progress saved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadingProgressEntity"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Offset out of bounds or invalid target section",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions/start": {
+      "post": {
+        "summary": "Start a new typing practice session",
+        "operationId": "startTypingSession",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartSessionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Session initialized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TypingSessionEntity"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Section is excluded from practice or invalid target",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Another typing session is already active",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions/{sessionId}/keystrokes": {
+      "post": {
+        "summary": "Submit keystroke batch and receive instant evaluation & metrics",
+        "operationId": "submitKeystrokes",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["keystrokes"],
+                "properties": {
+                  "keystrokes": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/KeystrokeInput"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Keystroke evaluations and updated live metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeystrokeBatchResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Session is paused or completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions/{sessionId}/state": {
+      "post": {
+        "summary": "Pause or resume an active session",
+        "operationId": "setSessionState",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["state"],
+                "properties": {
+                  "state": {
+                    "type": "string",
+                    "enum": ["active", "paused"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "State transition successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TypingSessionEntity"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid state transition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions/{sessionId}/complete": {
+      "post": {
+        "summary": "Finalize practice session and aggregate statistics",
+        "operationId": "completeTypingSession",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session completed and committed to history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TypingSessionEntity"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Session already completed or aborted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions/{sessionId}/abort": {
+      "post": {
+        "summary": "Abort and discard session",
+        "operationId": "abortTypingSession",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session aborted"
+          },
+          "404": {
+            "description": "Session not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions/active": {
+      "get": {
+        "summary": "Check for active or unclosed session (Crash Recovery)",
+        "operationId": "getActiveSession",
+        "responses": {
+          "200": {
+            "description": "Active session found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TypingSessionEntity"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No active session in progress"
+          }
+        }
+      }
+    },
+    "/analytics/overview": {
+      "get": {
+        "summary": "Get aggregate user statistics and streaks",
+        "operationId": "getAnalyticsOverview",
+        "responses": {
+          "200": {
+            "description": "User analytics overview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsOverview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analytics/trends": {
+      "get": {
+        "summary": "Get time-series trends for WPM, accuracy, and practice time",
+        "operationId": "getAnalyticsTrends",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daily historical aggregates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsTrends"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analytics/documents/{documentId}": {
+      "get": {
+        "summary": "Get book-level and chapter-level statistics",
+        "operationId": "getDocumentAnalytics",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Document analytics details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentAnalytics"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Document not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analytics/weak-keys": {
+      "get": {
+        "summary": "Get ranked weak characters and bigrams",
+        "operationId": "getWeakKeys",
+        "responses": {
+          "200": {
+            "description": "Weak keys and bigram mistakes list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["weakKeys", "weakBigrams"],
+                  "properties": {
+                    "weakKeys": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WeakKeyAggregate"
+                      }
+                    },
+                    "weakBigrams": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WeakBigramAggregate"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/practice/drills/generate": {
+      "post": {
+        "summary": "Algorithmically generate a weak-key drill passage without AI",
+        "operationId": "generateWeakKeyDrill",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["wordCount"],
+                "properties": {
+                  "wordCount": {
+                    "type": "integer",
+                    "minimum": 20,
+                    "maximum": 500,
+                    "default": 100
+                  },
+                  "documentId": {
+                    "type": "string"
+                  },
+                  "targetKeys": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Generated practice drill passage",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeakKeyDrillPractice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No errors recorded yet to generate targeted drills",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/search": {
+      "post": {
+        "summary": "Search across library documents using SQLite FTS5",
+        "operationId": "searchDocuments",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchQuery"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ranked search results with highlighted snippets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResults"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid FTS syntax or empty query string",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bookmarks": {
+      "get": {
+        "summary": "List bookmarks",
+        "operationId": "listBookmarks",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of bookmarks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BookmarkEntity"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create bookmark at current reading position",
+        "operationId": "createBookmark",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBookmarkRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Bookmark created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookmarkEntity"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid position offset or missing title",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bookmarks/{bookmarkId}": {
+      "delete": {
+        "summary": "Delete bookmark",
+        "operationId": "deleteBookmark",
+        "parameters": [
+          {
+            "name": "bookmarkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Bookmark deleted"
+          },
+          "404": {
+            "description": "Bookmark not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notes": {
+      "get": {
+        "summary": "List notes",
+        "operationId": "listNotes",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of notes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NoteEntity"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create note",
+        "operationId": "createNote",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateNoteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Note created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteEntity"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty note content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notes/{noteId}": {
+      "put": {
+        "summary": "Update note content",
+        "operationId": "updateNote",
+        "parameters": [
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["content"],
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Note updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteEntity"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Note not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete note",
+        "operationId": "deleteNote",
+        "parameters": [
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Note deleted"
+          },
+          "404": {
+            "description": "Note not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings": {
+      "get": {
+        "summary": "Get user settings",
+        "operationId": "getSettings",
+        "responses": {
+          "200": {
+            "description": "Current settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update user settings",
+        "operationId": "updateSettings",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserSettings"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Settings updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid settings payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/backup/export": {
+      "post": {
+        "summary": "Export library to .typeread-backup archive",
+        "operationId": "exportBackup",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["destinationDirectory"],
+                "properties": {
+                  "destinationDirectory": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Backup created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["backupFilePath", "manifest"],
+                  "properties": {
+                    "backupFilePath": {
+                      "type": "string"
+                    },
+                    "manifest": {
+                      "$ref": "#/components/schemas/BackupManifest"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Backup generation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/backup/validate": {
+      "post": {
+        "summary": "Validate .typeread-backup archive without applying",
+        "operationId": "validateBackup",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["backupFilePath"],
+                "properties": {
+                  "backupFilePath": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupValidationResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corrupted or non-zip file",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/backup/restore": {
+      "post": {
+        "summary": "Restore library from backup archive",
+        "operationId": "restoreBackup",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["backupFilePath"],
+                "properties": {
+                  "backupFilePath": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Library restored successfully"
+          },
+          "400": {
+            "description": "Schema version incompatible or backup corrupted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Restore process failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DocumentFormat": {
+        "type": "string",
+        "enum": ["pdf", "epub", "docx", "txt", "markdown", "html"]
+      },
+      "IngestionStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "validating",
+          "extracting",
+          "normalizing",
+          "cleaning",
+          "detecting_structure",
+          "preview_ready",
+          "committed",
+          "failed"
+        ]
+      },
+      "StructuralLevel": {
+        "type": "string",
+        "enum": ["part", "chapter", "section", "subsection"]
+      },
+      "TypingMode": {
+        "type": "string",
+        "enum": [
+          "standard",
+          "lowercase",
+          "no_punctuation",
+          "letters_only",
+          "numbers",
+          "punctuation",
+          "quotes",
+          "custom"
+        ]
+      },
+      "ErrorHandlingMode": {
+        "type": "string",
+        "enum": [
+          "allow_with_backspace",
+          "stop_on_error",
+          "immediate_backspace"
+        ]
+      },
+      "CaretStyle": {
+        "type": "string",
+        "enum": ["line", "block", "underline", "bar_blinking"]
+      },
+      "ThemeId": {
+        "type": "string",
+        "enum": ["light", "dark", "sepia", "paper", "high_contrast", "midnight"]
+      },
+      "TypingSessionState": {
+        "type": "string",
+        "enum": ["ready", "active", "paused", "completed", "aborted"]
+      },
+      "ErrorCode": {
+        "type": "string",
+        "enum": [
+          "FILE_NOT_FOUND",
+          "FILE_UNREADABLE",
+          "UNSUPPORTED_FORMAT",
+          "CORRUPTED_DOCUMENT",
+          "EMPTY_DOCUMENT",
+          "OCR_REQUIRED",
+          "OCR_FAILED",
+          "PARSING_FAILED",
+          "DOCUMENT_NOT_FOUND",
+          "DOCUMENT_ALREADY_EXISTS",
+          "CHAPTER_NOT_FOUND",
+          "SECTION_NOT_FOUND",
+          "PARAGRAPH_NOT_FOUND",
+          "SESSION_NOT_FOUND",
+          "SESSION_ALREADY_FINISHED",
+          "INVALID_KEYSTROKE",
+          "POSITION_OUT_OF_BOUNDS",
+          "USER_NOT_FOUND",
+          "DATABASE_ERROR",
+          "BACKUP_CREATION_FAILED",
+          "BACKUP_CORRUPTED",
+          "SCHEMA_VERSION_MISMATCH"
+        ]
+      },
+      "AppError": {
+        "type": "object",
+        "required": ["code", "message", "timestamp", "recoverable"],
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ErrorCode"
+          },
+          "message": {
+            "type": "string"
+          },
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["message"],
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "constraint": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recoverable": {
+            "type": "boolean"
+          },
+          "suggestedAction": {
+            "type": "string"
+          }
+        }
+      },
+      "ProcessingProfile": {
+        "type": "object",
+        "required": [
+          "removeHeaders",
+          "removeFooters",
+          "removePageNumbers",
+          "repairHyphenation",
+          "mergeWrappedLines",
+          "normalizeUnicode",
+          "normalizeWhitespace",
+          "excludeReferences",
+          "excludeAcknowledgments",
+          "excludePreface",
+          "minHeadingConfidence",
+          "enableLocalOcrFallback"
+        ],
+        "properties": {
+          "removeHeaders": {
+            "type": "boolean"
+          },
+          "removeFooters": {
+            "type": "boolean"
+          },
+          "removePageNumbers": {
+            "type": "boolean"
+          },
+          "repairHyphenation": {
+            "type": "boolean"
+          },
+          "mergeWrappedLines": {
+            "type": "boolean"
+          },
+          "normalizeUnicode": {
+            "type": "boolean"
+          },
+          "normalizeWhitespace": {
+            "type": "boolean"
+          },
+          "excludeReferences": {
+            "type": "boolean"
+          },
+          "excludeAcknowledgments": {
+            "type": "boolean"
+          },
+          "excludePreface": {
+            "type": "boolean"
+          },
+          "minHeadingConfidence": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0
+          },
+          "enableLocalOcrFallback": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ProcessingStatistics": {
+        "type": "object",
+        "required": [
+          "totalPages",
+          "totalWords",
+          "totalCharacters",
+          "detectedChaptersCount",
+          "detectedSectionsCount",
+          "removedHeadersCount",
+          "removedFootersCount",
+          "removedPageNumbersCount",
+          "repairedHyphenationsCount",
+          "ocrAppliedPagesCount",
+          "processingDurationMs"
+        ],
+        "properties": {
+          "totalPages": {
+            "type": "integer"
+          },
+          "totalWords": {
+            "type": "integer"
+          },
+          "totalCharacters": {
+            "type": "integer"
+          },
+          "detectedChaptersCount": {
+            "type": "integer"
+          },
+          "detectedSectionsCount": {
+            "type": "integer"
+          },
+          "removedHeadersCount": {
+            "type": "integer"
+          },
+          "removedFootersCount": {
+            "type": "integer"
+          },
+          "removedPageNumbersCount": {
+            "type": "integer"
+          },
+          "repairedHyphenationsCount": {
+            "type": "integer"
+          },
+          "ocrAppliedPagesCount": {
+            "type": "integer"
+          },
+          "processingDurationMs": {
+            "type": "integer"
+          }
+        }
+      },
+      "ImportDocumentRequest": {
+        "type": "object",
+        "required": ["filePath"],
+        "properties": {
+          "filePath": {
+            "type": "string"
+          },
+          "profileOverride": {
+            "$ref": "#/components/schemas/ProcessingProfile"
+          }
+        }
+      },
+      "IngestionPreview": {
+        "type": "object",
+        "required": [
+          "documentId",
+          "detectedTitle",
+          "detectedAuthor",
+          "format",
+          "statistics",
+          "structureTree",
+          "sampleCleanups"
+        ],
+        "properties": {
+          "documentId": {
+            "type": "string"
+          },
+          "detectedTitle": {
+            "type": "string"
+          },
+          "detectedAuthor": {
+            "type": "string"
+          },
+          "format": {
+            "$ref": "#/components/schemas/DocumentFormat"
+          },
+          "statistics": {
+            "$ref": "#/components/schemas/ProcessingStatistics"
+          },
+          "structureTree": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "title", "level", "pageNumber", "confidenceScore", "included", "subSections"],
+              "properties": {
+                "id": { "type": "string" },
+                "title": { "type": "string" },
+                "level": { "$ref": "#/components/schemas/StructuralLevel" },
+                "pageNumber": { "type": "integer" },
+                "confidenceScore": { "type": "number" },
+                "included": { "type": "boolean" },
+                "subSections": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["id", "title", "wordCount", "included"],
+                    "properties": {
+                      "id": { "type": "string" },
+                      "title": { "type": "string" },
+                      "wordCount": { "type": "integer" },
+                      "included": { "type": "boolean" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "sampleCleanups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["title", "beforeText", "afterText", "cleanupCategory"],
+              "properties": {
+                "title": { "type": "string" },
+                "beforeText": { "type": "string" },
+                "afterText": { "type": "string" },
+                "cleanupCategory": {
+                  "type": "string",
+                  "enum": ["hyphenation", "header_footer", "page_number", "whitespace"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "StructureUpdateRequest": {
+        "type": "object",
+        "required": ["chapters"],
+        "properties": {
+          "title": { "type": "string" },
+          "author": { "type": "string" },
+          "chapters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "title", "orderIndex", "includedInPractice", "sections"],
+              "properties": {
+                "id": { "type": "string" },
+                "title": { "type": "string" },
+                "orderIndex": { "type": "integer" },
+                "includedInPractice": { "type": "boolean" },
+                "sections": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["id", "title", "orderIndex", "includedInPractice"],
+                    "properties": {
+                      "id": { "type": "string" },
+                      "title": { "type": "string" },
+                      "orderIndex": { "type": "integer" },
+                      "includedInPractice": { "type": "boolean" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "ExclusionUpdateRequest": {
+        "type": "object",
+        "required": ["targetType", "targetId", "includedInPractice"],
+        "properties": {
+          "targetType": {
+            "type": "string",
+            "enum": ["chapter", "section"]
+          },
+          "targetId": {
+            "type": "string"
+          },
+          "includedInPractice": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DocumentEntity": {
+        "type": "object",
+        "required": [
+          "id",
+          "userId",
+          "title",
+          "author",
+          "fileName",
+          "filePath",
+          "fileHash",
+          "sourceFormat",
+          "wordCount",
+          "characterCount",
+          "status",
+          "processingProfile",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "userId": { "type": "string" },
+          "title": { "type": "string" },
+          "author": { "type": "string" },
+          "fileName": { "type": "string" },
+          "filePath": { "type": "string" },
+          "fileHash": { "type": "string" },
+          "sourceFormat": { "$ref": "#/components/schemas/DocumentFormat" },
+          "wordCount": { "type": "integer" },
+          "characterCount": { "type": "integer" },
+          "status": { "$ref": "#/components/schemas/IngestionStatus" },
+          "processingProfile": { "$ref": "#/components/schemas/ProcessingProfile" },
+          "errorMessage": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "DocumentLibraryCard": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "author",
+          "sourceFormat",
+          "completionPercentage",
+          "currentChapterTitle",
+          "averageWpm",
+          "averageAccuracy",
+          "totalWords",
+          "lastPracticedAt"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "author": { "type": "string" },
+          "sourceFormat": { "$ref": "#/components/schemas/DocumentFormat" },
+          "completionPercentage": { "type": "number" },
+          "currentChapterTitle": { "type": "string" },
+          "averageWpm": { "type": "number" },
+          "averageAccuracy": { "type": "number" },
+          "totalWords": { "type": "integer" },
+          "lastPracticedAt": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "DocumentStructureTree": {
+        "type": "object",
+        "required": ["document", "chapters"],
+        "properties": {
+          "document": { "$ref": "#/components/schemas/DocumentEntity" },
+          "chapters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "title", "level", "orderIndex", "includedInPractice", "sections"],
+              "properties": {
+                "id": { "type": "string" },
+                "title": { "type": "string" },
+                "level": { "$ref": "#/components/schemas/StructuralLevel" },
+                "orderIndex": { "type": "integer" },
+                "pageStart": { "type": "integer" },
+                "pageEnd": { "type": "integer" },
+                "includedInPractice": { "type": "boolean" },
+                "sections": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["id", "title", "orderIndex", "wordCount", "characterCount", "includedInPractice"],
+                    "properties": {
+                      "id": { "type": "string" },
+                      "title": { "type": "string" },
+                      "orderIndex": { "type": "integer" },
+                      "pageStart": { "type": "integer" },
+                      "pageEnd": { "type": "integer" },
+                      "wordCount": { "type": "integer" },
+                      "characterCount": { "type": "integer" },
+                      "includedInPractice": { "type": "boolean" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "SectionContentResponse": {
+        "type": "object",
+        "required": ["sectionId", "title", "paragraphs"],
+        "properties": {
+          "sectionId": { "type": "string" },
+          "title": { "type": "string" },
+          "paragraphs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "orderIndex", "sourceText", "displayText", "typingText", "typingToDisplayIndices"],
+              "properties": {
+                "id": { "type": "string" },
+                "orderIndex": { "type": "integer" },
+                "sourceText": { "type": "string" },
+                "displayText": { "type": "string" },
+                "typingText": { "type": "string" },
+                "typingToDisplayIndices": {
+                  "type": "array",
+                  "items": { "type": "integer" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "ReadingPositionPointer": {
+        "type": "object",
+        "required": ["documentId", "chapterId", "sectionId", "paragraphId", "characterOffset"],
+        "properties": {
+          "documentId": { "type": "string" },
+          "chapterId": { "type": "string" },
+          "sectionId": { "type": "string" },
+          "paragraphId": { "type": "string" },
+          "characterOffset": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "ReadingProgressEntity": {
+        "type": "object",
+        "required": ["id", "userId", "documentId", "position", "completionPercentage", "isCompleted", "lastPracticedAt", "updatedAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "userId": { "type": "string" },
+          "documentId": { "type": "string" },
+          "position": { "$ref": "#/components/schemas/ReadingPositionPointer" },
+          "completionPercentage": { "type": "number", "minimum": 0.0, "maximum": 100.0 },
+          "isCompleted": { "type": "boolean" },
+          "lastPracticedAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "StartSessionRequest": {
+        "type": "object",
+        "required": ["documentId", "chapterId", "sectionId", "typingMode"],
+        "properties": {
+          "documentId": { "type": "string" },
+          "chapterId": { "type": "string" },
+          "sectionId": { "type": "string" },
+          "typingMode": { "$ref": "#/components/schemas/TypingMode" },
+          "errorHandlingMode": { "$ref": "#/components/schemas/ErrorHandlingMode" }
+        }
+      },
+      "KeystrokeInput": {
+        "type": "object",
+        "required": ["timestampMs", "key", "expectedChar", "position", "isBackspace"],
+        "properties": {
+          "timestampMs": { "type": "integer" },
+          "key": { "type": "string" },
+          "expectedChar": { "type": "string" },
+          "position": { "type": "integer", "minimum": 0 },
+          "isBackspace": { "type": "boolean" }
+        }
+      },
+      "KeystrokeEvaluation": {
+        "type": "object",
+        "required": ["position", "expectedChar", "actualKey", "isCorrect", "isBackspace", "timestampMs", "latencyMs"],
+        "properties": {
+          "position": { "type": "integer" },
+          "expectedChar": { "type": "string" },
+          "actualKey": { "type": "string" },
+          "isCorrect": { "type": "boolean" },
+          "isBackspace": { "type": "boolean" },
+          "timestampMs": { "type": "integer" },
+          "latencyMs": { "type": "integer" }
+        }
+      },
+      "TypingMetrics": {
+        "type": "object",
+        "required": [
+          "netWpm",
+          "grossWpm",
+          "accuracyPct",
+          "errorRatePct",
+          "totalKeystrokes",
+          "correctKeystrokes",
+          "incorrectKeystrokes",
+          "backspaceCount",
+          "activeSeconds",
+          "consistencyPct"
+        ],
+        "properties": {
+          "netWpm": { "type": "number" },
+          "grossWpm": { "type": "number" },
+          "accuracyPct": { "type": "number" },
+          "errorRatePct": { "type": "number" },
+          "totalKeystrokes": { "type": "integer" },
+          "correctKeystrokes": { "type": "integer" },
+          "incorrectKeystrokes": { "type": "integer" },
+          "backspaceCount": { "type": "integer" },
+          "activeSeconds": { "type": "number" },
+          "consistencyPct": { "type": "number" }
+        }
+      },
+      "KeystrokeBatchResult": {
+        "type": "object",
+        "required": ["evaluations", "currentMetrics", "currentPosition"],
+        "properties": {
+          "evaluations": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/KeystrokeEvaluation" }
+          },
+          "currentMetrics": { "$ref": "#/components/schemas/TypingMetrics" },
+          "currentPosition": { "type": "integer" }
+        }
+      },
+      "TypingSessionEntity": {
+        "type": "object",
+        "required": [
+          "id",
+          "userId",
+          "documentId",
+          "chapterId",
+          "sectionId",
+          "startTime",
+          "endTime",
+          "state",
+          "typingMode",
+          "metrics",
+          "completed",
+          "createdAt"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "userId": { "type": "string" },
+          "documentId": { "type": "string" },
+          "chapterId": { "type": "string" },
+          "sectionId": { "type": "string" },
+          "startTime": { "type": "string", "format": "date-time" },
+          "endTime": { "type": "string", "format": "date-time", "nullable": true },
+          "state": { "$ref": "#/components/schemas/TypingSessionState" },
+          "typingMode": { "$ref": "#/components/schemas/TypingMode" },
+          "metrics": { "$ref": "#/components/schemas/TypingMetrics" },
+          "completed": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "WeakKeyAggregate": {
+        "type": "object",
+        "required": ["character", "errorCount", "totalOccurrences", "errorRatePct", "commonSubstitutions"],
+        "properties": {
+          "character": { "type": "string" },
+          "errorCount": { "type": "integer" },
+          "totalOccurrences": { "type": "integer" },
+          "errorRatePct": { "type": "number" },
+          "commonSubstitutions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["substitutedFor", "count"],
+              "properties": {
+                "substitutedFor": { "type": "string" },
+                "count": { "type": "integer" }
+              }
+            }
+          }
+        }
+      },
+      "WeakBigramAggregate": {
+        "type": "object",
+        "required": ["bigram", "errorCount", "totalOccurrences", "errorRatePct"],
+        "properties": {
+          "bigram": { "type": "string" },
+          "errorCount": { "type": "integer" },
+          "totalOccurrences": { "type": "integer" },
+          "errorRatePct": { "type": "number" }
+        }
+      },
+      "WeakKeyDrillPractice": {
+        "type": "object",
+        "required": ["drillId", "targetKeys", "targetBigrams", "generatedPassage", "wordCount", "source"],
+        "properties": {
+          "drillId": { "type": "string" },
+          "targetKeys": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "targetBigrams": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "generatedPassage": { "type": "string" },
+          "wordCount": { "type": "integer" },
+          "source": {
+            "type": "string",
+            "enum": ["document_vocabulary", "built_in_frequency_corpus"]
+          }
+        }
+      },
+      "AnalyticsOverview": {
+        "type": "object",
+        "required": [
+          "averageWpm",
+          "bestWpm",
+          "averageAccuracy",
+          "totalActiveTimeSeconds",
+          "totalWordsTyped",
+          "totalCharactersTyped",
+          "currentDailyStreakDays",
+          "longestDailyStreakDays",
+          "completedChaptersCount",
+          "completedBooksCount"
+        ],
+        "properties": {
+          "averageWpm": { "type": "number" },
+          "bestWpm": { "type": "number" },
+          "averageAccuracy": { "type": "number" },
+          "totalActiveTimeSeconds": { "type": "number" },
+          "totalWordsTyped": { "type": "integer" },
+          "totalCharactersTyped": { "type": "integer" },
+          "currentDailyStreakDays": { "type": "integer" },
+          "longestDailyStreakDays": { "type": "integer" },
+          "completedChaptersCount": { "type": "integer" },
+          "completedBooksCount": { "type": "integer" }
+        }
+      },
+      "AnalyticsTrends": {
+        "type": "object",
+        "required": ["days"],
+        "properties": {
+          "days": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["date", "activeSeconds", "averageWpm", "accuracyPct", "wordsTyped"],
+              "properties": {
+                "date": { "type": "string", "format": "date" },
+                "activeSeconds": { "type": "number" },
+                "averageWpm": { "type": "number" },
+                "accuracyPct": { "type": "number" },
+                "wordsTyped": { "type": "integer" }
+              }
+            }
+          }
+        }
+      },
+      "DocumentAnalytics": {
+        "type": "object",
+        "required": [
+          "documentId",
+          "completionPercentage",
+          "timeTypedSeconds",
+          "wordsTyped",
+          "averageWpm",
+          "accuracyPct",
+          "sessionsCount",
+          "chapterBreakdown"
+        ],
+        "properties": {
+          "documentId": { "type": "string" },
+          "completionPercentage": { "type": "number" },
+          "timeTypedSeconds": { "type": "number" },
+          "wordsTyped": { "type": "integer" },
+          "averageWpm": { "type": "number" },
+          "accuracyPct": { "type": "number" },
+          "sessionsCount": { "type": "integer" },
+          "chapterBreakdown": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["chapterId", "title", "completionPercentage", "averageWpm", "accuracyPct", "timeTypedSeconds"],
+              "properties": {
+                "chapterId": { "type": "string" },
+                "title": { "type": "string" },
+                "completionPercentage": { "type": "number" },
+                "averageWpm": { "type": "number" },
+                "accuracyPct": { "type": "number" },
+                "timeTypedSeconds": { "type": "number" }
+              }
+            }
+          }
+        }
+      },
+      "SearchQuery": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": { "type": "string", "minLength": 1 },
+          "documentId": { "type": "string" },
+          "limit": { "type": "integer", "default": 50, "maximum": 200 },
+          "offset": { "type": "integer", "default": 0 }
+        }
+      },
+      "SearchResults": {
+        "type": "object",
+        "required": ["query", "totalMatches", "items"],
+        "properties": {
+          "query": { "type": "string" },
+          "totalMatches": { "type": "integer" },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "documentId",
+                "documentTitle",
+                "chapterId",
+                "chapterTitle",
+                "sectionId",
+                "sectionTitle",
+                "paragraphId",
+                "pageNumber",
+                "matchedSnippet",
+                "characterOffset",
+                "rankScore"
+              ],
+              "properties": {
+                "documentId": { "type": "string" },
+                "documentTitle": { "type": "string" },
+                "chapterId": { "type": "string" },
+                "chapterTitle": { "type": "string" },
+                "sectionId": { "type": "string" },
+                "sectionTitle": { "type": "string" },
+                "paragraphId": { "type": "string" },
+                "pageNumber": { "type": "integer" },
+                "matchedSnippet": { "type": "string" },
+                "characterOffset": { "type": "integer" },
+                "rankScore": { "type": "number" }
+              }
+            }
+          }
+        }
+      },
+      "CreateBookmarkRequest": {
+        "type": "object",
+        "required": ["documentId", "chapterId", "sectionId", "paragraphId", "characterOffset", "title"],
+        "properties": {
+          "documentId": { "type": "string" },
+          "chapterId": { "type": "string" },
+          "sectionId": { "type": "string" },
+          "paragraphId": { "type": "string" },
+          "characterOffset": { "type": "integer" },
+          "title": { "type": "string", "minLength": 1 },
+          "noteSnippet": { "type": "string" }
+        }
+      },
+      "BookmarkEntity": {
+        "type": "object",
+        "required": ["id", "userId", "documentId", "chapterId", "sectionId", "paragraphId", "characterOffset", "title", "createdAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "userId": { "type": "string" },
+          "documentId": { "type": "string" },
+          "chapterId": { "type": "string" },
+          "sectionId": { "type": "string" },
+          "paragraphId": { "type": "string" },
+          "characterOffset": { "type": "integer" },
+          "title": { "type": "string" },
+          "noteSnippet": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateNoteRequest": {
+        "type": "object",
+        "required": ["documentId", "chapterId", "sectionId", "paragraphId", "content"],
+        "properties": {
+          "documentId": { "type": "string" },
+          "chapterId": { "type": "string" },
+          "sectionId": { "type": "string" },
+          "paragraphId": { "type": "string" },
+          "content": { "type": "string", "minLength": 1 }
+        }
+      },
+      "NoteEntity": {
+        "type": "object",
+        "required": ["id", "userId", "documentId", "chapterId", "sectionId", "paragraphId", "content", "createdAt", "updatedAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "userId": { "type": "string" },
+          "documentId": { "type": "string" },
+          "chapterId": { "type": "string" },
+          "sectionId": { "type": "string" },
+          "paragraphId": { "type": "string" },
+          "content": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "UserSettings": {
+        "type": "object",
+        "required": ["userId", "general", "appearance", "typing", "documents", "privacy", "updatedAt"],
+        "properties": {
+          "userId": { "type": "string" },
+          "general": {
+            "type": "object",
+            "required": ["startupBehavior", "autosaveIntervalSeconds", "confirmBeforeDelete", "backupStorageDirectory"],
+            "properties": {
+              "startupBehavior": { "type": "string", "enum": ["resume_last", "open_library"] },
+              "autosaveIntervalSeconds": { "type": "integer", "minimum": 2, "maximum": 300 },
+              "confirmBeforeDelete": { "type": "boolean" },
+              "backupStorageDirectory": { "type": "string" }
+            }
+          },
+          "appearance": {
+            "type": "object",
+            "required": ["theme", "fontFamily", "fontSizePt", "lineHeightEm", "contentWidthPx", "caretStyle", "smoothCaretAnimation"],
+            "properties": {
+              "theme": { "$ref": "#/components/schemas/ThemeId" },
+              "fontFamily": { "type": "string" },
+              "fontSizePt": { "type": "integer", "minimum": 8, "maximum": 48 },
+              "lineHeightEm": { "type": "number", "minimum": 1.0, "maximum": 3.0 },
+              "contentWidthPx": { "type": "integer", "minimum": 400, "maximum": 1920 },
+              "caretStyle": { "$ref": "#/components/schemas/CaretStyle" },
+              "smoothCaretAnimation": { "type": "boolean" }
+            }
+          },
+          "typing": {
+            "type": "object",
+            "required": ["defaultMode", "errorHandling", "soundKeypress", "soundError", "soundComplete", "adaptiveDifficultyEnabled"],
+            "properties": {
+              "defaultMode": { "$ref": "#/components/schemas/TypingMode" },
+              "errorHandling": { "$ref": "#/components/schemas/ErrorHandlingMode" },
+              "soundKeypress": { "type": "boolean" },
+              "soundError": { "type": "boolean" },
+              "soundComplete": { "type": "boolean" },
+              "adaptiveDifficultyEnabled": { "type": "boolean" }
+            }
+          },
+          "documents": {
+            "type": "object",
+            "required": ["defaultProcessingProfile", "autoRunOcrIfLowConfidence"],
+            "properties": {
+              "defaultProcessingProfile": { "$ref": "#/components/schemas/ProcessingProfile" },
+              "autoRunOcrIfLowConfidence": { "type": "boolean" }
+            }
+          },
+          "privacy": {
+            "type": "object",
+            "required": ["localTelemetryEnabled", "detailedErrorLogging"],
+            "properties": {
+              "localTelemetryEnabled": { "type": "boolean" },
+              "detailedErrorLogging": { "type": "boolean" }
+            }
+          },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "BackupManifest": {
+        "type": "object",
+        "required": [
+          "backupVersion",
+          "appVersion",
+          "exportedAt",
+          "databaseChecksumSha256",
+          "documentsCount",
+          "sessionsCount",
+          "files"
+        ],
+        "properties": {
+          "backupVersion": { "type": "integer" },
+          "appVersion": { "type": "string" },
+          "exportedAt": { "type": "string", "format": "date-time" },
+          "databaseChecksumSha256": { "type": "string" },
+          "documentsCount": { "type": "integer" },
+          "sessionsCount": { "type": "integer" },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["relativePath", "checksumSha256", "byteSize"],
+              "properties": {
+                "relativePath": { "type": "string" },
+                "checksumSha256": { "type": "string" },
+                "byteSize": { "type": "integer" }
+              }
+            }
+          }
+        }
+      },
+      "BackupValidationResult": {
+        "type": "object",
+        "required": ["isValid", "validationErrors"],
+        "properties": {
+          "isValid": { "type": "boolean" },
+          "manifest": { "$ref": "#/components/schemas/BackupManifest", "nullable": true },
+          "validationErrors": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

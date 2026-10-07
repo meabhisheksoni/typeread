@@ -1,0 +1,30 @@
+{
+  "sessionName": "agy-team",
+  "model": "gemini-3.8-flash-high",
+  "effort": "high",
+  "autoApprove": true,
+  "rolesList": [
+    "architect",
+    "backend",
+    "frontend",
+    "qa"
+  ],
+  "roles": {
+    "architect": {
+      "enabled": true,
+      "pane": 1
+    },
+    "backend": {
+      "enabled": true,
+      "pane": 2
+    },
+    "frontend": {
+      "enabled": true,
+      "pane": 3
+    },
+    "qa": {
+      "enabled": true,
+      "pane": 4
+    }
+  }
+}

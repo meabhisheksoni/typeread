@@ -1,0 +1,81 @@
+name: Windows Test and Build TypeRead
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  test-and-build-windows:
+    name: Test & Build on Windows
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Run Test Suite on Windows
+        run: |
+          pytest -v
+
+      - name: Compile Windows Executable with PyInstaller
+        run: |
+          pyinstaller --clean --noconfirm --onedir --windowed --name "TypeRead" `
+            --add-data "src/storage/schema.sql;src/storage" `
+            --add-data "src/storage/schema.sql;." `
+            app_launcher.py
+
+      - name: Compress Executable Package
+        run: |
+          Compress-Archive -Path dist/TypeRead -DestinationPath TypeRead-Windows-x64.zip
+
+      - name: Upload Windows Executable Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TypeRead-Windows-x64
+          path: TypeRead-Windows-x64.zip
+          retention-days: 14
+
+  test-ubuntu:
+    name: Test on Ubuntu Linux
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install System Libraries for PySide6
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libegl-mesa0
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Pytest in Offscreen Mode
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          pytest -v

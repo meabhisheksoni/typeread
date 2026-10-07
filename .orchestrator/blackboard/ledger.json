@@ -1,0 +1,40 @@
+{
+  "project": "munnartirupatitrip2",
+  "startedAt": "2026-10-07T00:35:11.726Z",
+  "currentGate": "GATE_2_BACKEND",
+  "gates": {
+    "GATE_1_ARCHITECT": {
+      "roleKey": "architect",
+      "role": "Architect",
+      "pane": 1,
+      "status": "PASSED",
+      "evidence": "Created 5 contract files.",
+      "updatedAt": "2026-10-07T00:40:56.685Z"
+    },
+    "GATE_2_BACKEND": {
+      "roleKey": "backend",
+      "role": "Backend",
+      "pane": 2,
+      "status": "PASSED",
+      "evidence": "Backend completed cleanly.",
+      "updatedAt": "2026-10-07T01:03:43.747Z"
+    },
+    "GATE_3_FRONTEND": {
+      "roleKey": "frontend",
+      "role": "Frontend",
+      "pane": 3,
+      "status": "PASSED",
+      "evidence": "Frontend completed cleanly.",
+      "updatedAt": "2026-10-07T01:16:13.112Z"
+    },
+    "GATE_4_QA": {
+      "roleKey": "qa",
+      "role": "Qa",
+      "pane": 4,
+      "status": "PASSED",
+      "evidence": "Verification receipts validated.",
+      "updatedAt": "2026-10-07T01:26:30.289Z"
+    }
+  },
+  "updatedAt": "2026-10-07T01:26:30.289Z"
+}
