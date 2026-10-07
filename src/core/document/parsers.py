@@ -122,110 +122,120 @@ class DocumentParserRegistry:
 
     @staticmethod
     def _parse_pdf(file_path: str) -> RawDocumentContent:
+        import gc
         import fitz  # PyMuPDF
 
+        doc = None
         try:
-            doc = fitz.open(file_path)
-        except Exception as e:
-            raise AppErrorException.unprocessable(
-                code=ErrorCode.CORRUPTED_DOCUMENT,
-                message=f"Could not open PDF: {str(e)}",
-            )
+            try:
+                doc = fitz.open(file_path)
+            except Exception as e:
+                gc.collect()
+                raise AppErrorException.unprocessable(
+                    code=ErrorCode.CORRUPTED_DOCUMENT,
+                    message=f"Could not open PDF: {str(e)}",
+                )
 
-        if doc.is_encrypted:
-            raise AppErrorException.unprocessable(
-                code=ErrorCode.FILE_UNREADABLE,
-                message="PDF is password protected or encrypted.",
-            )
+            if doc.is_encrypted:
+                raise AppErrorException.unprocessable(
+                    code=ErrorCode.FILE_UNREADABLE,
+                    message="PDF is password protected or encrypted.",
+                )
 
-        meta = doc.metadata or {}
-        title = meta.get("title") or Path(file_path).stem
-        author = meta.get("author") or "Unknown"
+            meta = doc.metadata or {}
+            title = meta.get("title") or Path(file_path).stem
+            author = meta.get("author") or "Unknown"
 
-        # Extract PDF Table of Contents (Outline) if available
-        toc = doc.get_toc() or []
-        toc_lookup: dict[int, list[tuple[int, str]]] = {}
-        for item in toc:
-            if len(item) >= 3:
-                lvl, t_title, p_num = item[0], str(item[1]).strip().lower(), item[2]
-                if t_title:
-                    toc_lookup.setdefault(p_num, []).append((lvl, t_title))
+            # Extract PDF Table of Contents (Outline) if available
+            toc = doc.get_toc() or []
+            toc_lookup: dict[int, list[tuple[int, str]]] = {}
+            for item in toc:
+                if len(item) >= 3:
+                    lvl, t_title, p_num = item[0], str(item[1]).strip().lower(), item[2]
+                    if t_title:
+                        toc_lookup.setdefault(p_num, []).append((lvl, t_title))
 
-        pages: List[RawPage] = []
-        total_extracted_chars = 0
+            pages: List[RawPage] = []
+            total_extracted_chars = 0
 
-        for page_idx, page in enumerate(doc):
-            page_num = page_idx + 1
-            raw_page = RawPage(page_number=page_num)
+            for page_idx, page in enumerate(doc):
+                page_num = page_idx + 1
+                raw_page = RawPage(page_number=page_num)
 
-            # Extract detailed text blocks with font sizes and weights
-            text_page = page.get_text("dict")
-            blocks = text_page.get("blocks", [])
+                # Extract detailed text blocks with font sizes and weights
+                text_page = page.get_text("dict")
+                blocks = text_page.get("blocks", [])
 
-            for block in blocks:
-                if block.get("type") == 0:  # Text block
-                    for line in block.get("lines", []):
-                        spans = line.get("spans", [])
-                        if not spans:
-                            continue
-                        line_text = "".join(s.get("text", "") for s in spans).strip()
-                        if not line_text:
-                            continue
+                for block in blocks:
+                    if block.get("type") == 0:  # Text block
+                        for line in block.get("lines", []):
+                            spans = line.get("spans", [])
+                            if not spans:
+                                continue
+                            line_text = "".join(s.get("text", "") for s in spans).strip()
+                            if not line_text:
+                                continue
 
-                        # Compute average font size and detect bold flags
-                        sizes = [s.get("size", 12.0) for s in spans if s.get("text", "").strip()]
-                        avg_size = sum(sizes) / len(sizes) if sizes else 12.0
-                        flags = [s.get("flags", 0) for s in spans]
-                        # In PyMuPDF, bit 4 (16) is bold, bit 1 (2) is italic
-                        is_bold = any(bool(f & 16) for f in flags)
-                        bbox = line.get("bbox", (0, 0, 0, 0))
-                        pos_x = bbox[0]
-                        pos_y = bbox[1]
-                        line_width = bbox[2] - bbox[0]
+                            # Compute average font size and detect bold flags
+                            sizes = [s.get("size", 12.0) for s in spans if s.get("text", "").strip()]
+                            avg_size = sum(sizes) / len(sizes) if sizes else 12.0
+                            flags = [s.get("flags", 0) for s in spans]
+                            # In PyMuPDF, bit 4 (16) is bold, bit 1 (2) is italic
+                            is_bold = any(bool(f & 16) for f in flags)
+                            bbox = line.get("bbox", (0, 0, 0, 0))
+                            pos_x = bbox[0]
+                            pos_y = bbox[1]
+                            line_width = bbox[2] - bbox[0]
 
-                        # Check if line matches PDF outline / TOC
-                        is_heading_hint = False
-                        heading_level_hint = None
-                        if page_num in toc_lookup:
-                            for lvl, t_title in toc_lookup[page_num]:
-                                lt_lower = line_text.lower()
-                                if t_title == lt_lower or t_title in lt_lower or lt_lower in t_title:
-                                    is_heading_hint = True
-                                    heading_level_hint = lvl
-                                    break
+                            # Check if line matches PDF outline / TOC
+                            is_heading_hint = False
+                            heading_level_hint = None
+                            if page_num in toc_lookup:
+                                for lvl, t_title in toc_lookup[page_num]:
+                                    lt_lower = line_text.lower()
+                                    if t_title == lt_lower or t_title in lt_lower or lt_lower in t_title:
+                                        is_heading_hint = True
+                                        heading_level_hint = lvl
+                                        break
 
-                        raw_page.lines.append(
-                            RawLine(
-                                text=line_text,
-                                page_number=page_num,
-                                font_size=avg_size,
-                                is_bold=is_bold,
-                                position_y=pos_y,
-                                position_x=pos_x,
-                                line_width=line_width,
-                                is_heading_hint=is_heading_hint,
-                                heading_level_hint=heading_level_hint,
+                            raw_page.lines.append(
+                                RawLine(
+                                    text=line_text,
+                                    page_number=page_num,
+                                    font_size=avg_size,
+                                    is_bold=is_bold,
+                                    position_y=pos_y,
+                                    position_x=pos_x,
+                                    line_width=line_width,
+                                    is_heading_hint=is_heading_hint,
+                                    heading_level_hint=heading_level_hint,
+                                )
                             )
-                        )
-                        total_extracted_chars += len(line_text)
+                            total_extracted_chars += len(line_text)
 
-            pages.append(raw_page)
+                pages.append(raw_page)
 
-        doc.close()
+            if total_extracted_chars == 0:
+                raise AppErrorException.unprocessable(
+                    code=ErrorCode.OCR_REQUIRED,
+                    message="No extractable text found in PDF. Document appears to be a scanned image.",
+                    suggested_action="Run OCR on document to extract readable text.",
+                )
 
-        if total_extracted_chars == 0:
-            raise AppErrorException.unprocessable(
-                code=ErrorCode.OCR_REQUIRED,
-                message="No extractable text found in PDF. Document appears to be a scanned image.",
-                suggested_action="Run OCR on document to extract readable text.",
+            return RawDocumentContent(
+                title=title,
+                author=author,
+                format=DocumentFormat.PDF,
+                pages=pages,
             )
+        finally:
+            if doc is not None:
+                try:
+                    doc.close()
+                except Exception:
+                    pass
+            gc.collect()
 
-        return RawDocumentContent(
-            title=title,
-            author=author,
-            format=DocumentFormat.PDF,
-            pages=pages,
-        )
 
     @staticmethod
     def _parse_epub(file_path: str) -> RawDocumentContent:

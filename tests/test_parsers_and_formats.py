@@ -16,7 +16,7 @@ from src.core.document.parsers import DocumentParserRegistry
 
 def test_pdf_parser_text_extraction():
     # Create sample PDF using PyMuPDF
-    with tempfile.TemporaryDirectory() as td:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
         pdf_path = str(Path(td) / "sample.pdf")
         pdf_doc = fitz.open()
         page = pdf_doc.new_page()
@@ -35,7 +35,7 @@ def test_pdf_parser_text_extraction():
 
 def test_pdf_parser_scanned_image_raises_ocr_required():
     # Empty page with 0 text
-    with tempfile.TemporaryDirectory() as td:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
         pdf_path = str(Path(td) / "scanned.pdf")
         pdf_doc = fitz.open()
         pdf_doc.new_page()
@@ -48,7 +48,7 @@ def test_pdf_parser_scanned_image_raises_ocr_required():
 
 
 def test_docx_parser():
-    with tempfile.TemporaryDirectory() as td:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
         docx_path = str(Path(td) / "sample.docx")
         doc = docx.Document()
         doc.add_heading("Chapter 2: Deep Reading", level=1)

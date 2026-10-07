@@ -28,7 +28,7 @@ from src.core.typing.session import TypingSessionManager
 
 @pytest.fixture
 def app_instance():
-    with tempfile.TemporaryDirectory() as temp_dir:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
         yield create_app(data_dir=temp_dir)
 
 
@@ -45,7 +45,7 @@ def test_empty_file_import_error():
 
 def test_scanned_pdf_ocr_required():
     """Verify that a PDF containing 0 extractable text raises OCR_REQUIRED."""
-    with tempfile.TemporaryDirectory() as td:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
         pdf_path = os.path.join(td, "blank.pdf")
         doc = fitz.open()
         doc.new_page()  # Blank page without text
@@ -69,7 +69,7 @@ def test_nonexistent_file_import_error():
 
 def test_unsupported_format_error():
     """Verify that unsupported extensions raise UNSUPPORTED_FORMAT."""
-    with tempfile.TemporaryDirectory() as td:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
         path = os.path.join(td, "bad.exe")
         with open(path, "w") as f:
             f.write("Binary executable dummy")
@@ -82,7 +82,7 @@ def test_unsupported_format_error():
 
 def test_corrupted_pdf_file_error():
     """Verify that invalid/corrupted binary content in a .pdf file raises CORRUPTED_DOCUMENT or PARSING_FAILED."""
-    with tempfile.TemporaryDirectory() as td:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
         path = os.path.join(td, "corrupt.pdf")
         with open(path, "wb") as f:
             f.write(b"%PDF-1.4\nGARBAGE_CORRUPTED_BYTES_NOT_A_VALID_PDF_STRUCTURE\n%%EOF")
