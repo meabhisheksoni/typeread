@@ -181,6 +181,7 @@ class IngestionPipeline:
             def flush_paragraph():
                 nonlocal accumulated_para_lines, para_source_lines, para_pos_y
                 nonlocal paragraph_idx, char_counter
+                nonlocal current_section, current_section_preview, current_chapter_preview
                 if not accumulated_para_lines:
                     return
 
@@ -221,33 +222,50 @@ class IngestionPipeline:
 
                 # Update section stats
                 if current_section:
-                    sec_idx = sections.index(current_section)
-                    updated_sec = SectionEntity(
-                        id=current_section.id,
-                        document_id=current_section.document_id,
-                        chapter_id=current_section.chapter_id,
-                        title=current_section.title,
-                        order_index=current_section.order_index,
-                        page_start=current_section.page_start,
-                        page_end=page.page_number,
-                        text_start_char=current_section.text_start_char,
-                        text_end_char=char_counter,
-                        word_count=current_section.word_count + p_words,
-                        character_count=current_section.character_count + p_chars,
-                        included_in_practice=current_section.included_in_practice,
-                        created_at=current_section.created_at,
+                    # Use ID-based lookup to avoid stale-reference crash:
+                    # sections[sec_idx] is replaced with a new object each call,
+                    # so list.index() (identity check) would fail on the 2nd paragraph.
+                    sec_idx = next(
+                        (i for i, s in enumerate(sections) if s.id == current_section.id),
+                        None,
                     )
-                    sections[sec_idx] = updated_sec
-
-                    # Update preview node
-                    if current_section_preview:
-                        idx_prev = current_chapter_preview.sub_sections.index(current_section_preview)
-                        current_chapter_preview.sub_sections[idx_prev] = SectionPreviewNode(
-                            id=current_section_preview.id,
-                            title=current_section_preview.title,
-                            word_count=updated_sec.word_count,
-                            included=current_section_preview.included,
+                    if sec_idx is not None:
+                        updated_sec = SectionEntity(
+                            id=current_section.id,
+                            document_id=current_section.document_id,
+                            chapter_id=current_section.chapter_id,
+                            title=current_section.title,
+                            order_index=current_section.order_index,
+                            page_start=current_section.page_start,
+                            page_end=page.page_number,
+                            text_start_char=current_section.text_start_char,
+                            text_end_char=char_counter,
+                            word_count=current_section.word_count + p_words,
+                            character_count=current_section.character_count + p_chars,
+                            included_in_practice=current_section.included_in_practice,
+                            created_at=current_section.created_at,
                         )
+                        sections[sec_idx] = updated_sec
+                        # Sync local var so next flush_paragraph() sees the latest object
+                        current_section = updated_sec
+
+                        # Update preview node
+                        if current_section_preview and current_chapter_preview:
+                            prev_idx = next(
+                                (i for i, p in enumerate(current_chapter_preview.sub_sections)
+                                 if p.id == current_section_preview.id),
+                                None,
+                            )
+                            if prev_idx is not None:
+                                updated_preview = SectionPreviewNode(
+                                    id=current_section_preview.id,
+                                    title=current_section_preview.title,
+                                    word_count=updated_sec.word_count,
+                                    included=current_section_preview.included,
+                                )
+                                current_chapter_preview.sub_sections[prev_idx] = updated_preview
+                                # Sync local var so next flush_paragraph() sees the latest object
+                                current_section_preview = updated_preview
 
                 accumulated_para_lines = []
                 para_source_lines = []
@@ -361,6 +379,34 @@ class IngestionPipeline:
                     para_source_lines.append(line.text)
 
             flush_paragraph()
+
+        # ----------------------------------------------------------------
+        # Prune empty sections (word_count=0 / character_count=0).
+        # These are created when a heading is detected but has no body text
+        # before the next heading (e.g. "ALSO BY", "Contents", decorative
+        # headings).  Keeping them causes downstream crashes because
+        # paragraphs can never reference them and the practice engine has
+        # no content to display.  Remove them entirely before persisting.
+        # ----------------------------------------------------------------
+        empty_section_ids = {s.id for s in sections if s.word_count == 0 and s.character_count == 0}
+        sections = [s for s in sections if s.id not in empty_section_ids]
+        # Also remove any paragraphs that somehow ended up in an empty section
+        paragraphs = [p for p in paragraphs if p.section_id not in empty_section_ids]
+        # Remove chapters that are now completely empty after pruning their sections
+        non_empty_section_chapter_ids = {s.chapter_id for s in sections}
+        chapters = [c for c in chapters if c.id in non_empty_section_chapter_ids]
+        # Rebuild chapter_preview_nodes to match pruned chapters
+        surviving_chapter_id_strs = {str(c.id) for c in chapters}
+        chapter_preview_nodes = [
+            cp for cp in chapter_preview_nodes if cp.id in surviving_chapter_id_strs
+        ]
+        # Prune empty subsection previews from surviving chapter preview nodes.
+        # ChapterPreviewNode is frozen (cannot reassign .sub_sections field),
+        # so mutate the list in-place using slice assignment.
+        empty_section_id_strs = {str(sid) for sid in empty_section_ids}
+        for cp in chapter_preview_nodes:
+            surviving = [sp for sp in cp.sub_sections if sp.id not in empty_section_id_strs]
+            cp.sub_sections[:] = surviving
 
         # Update end char pointers on chapters
         for idx, chap in enumerate(chapters):
