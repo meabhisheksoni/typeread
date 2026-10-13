@@ -238,6 +238,18 @@ function buildVirtualKeyboard() {
         keyEl.innerHTML = `<span>${escapeHtml(item.key.toUpperCase())}</span>`;
       }
 
+      // Make virtual keys fully interactive for mouse clicks and touch taps
+      keyEl.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        let keyToSend = charVal;
+        if (charVal === ' ' || item.key === 'Space') keyToSend = ' ';
+        else if (charVal === 'enter' || item.key === 'Enter') keyToSend = 'Enter';
+        else if (charVal === 'backspace' || item.key === 'Backspace') keyToSend = 'Backspace';
+        else if (charVal === 'tab' || charVal === 'caps' || charVal === 'shift') return;
+
+        handleKeystroke(keyToSend);
+      });
+
       rowEl.appendChild(keyEl);
     });
 
@@ -256,7 +268,7 @@ function updateVirtualKeyboardTarget(expectedChar) {
   if (!expectedChar) return;
 
   const charLower = expectedChar.toLowerCase();
-  const fingerKey = FINGER_MAP[charLower] || FINGER_MAP[expectedChar] || 'thumb';
+  const fingerKey = expectedChar === '\n' ? 'right-pinky' : (FINGER_MAP[charLower] || FINGER_MAP[expectedChar] || 'thumb');
   const info = FINGER_INFO[fingerKey] || { name: 'Index Finger', label: 'Index', hand: 'Touch Guide' };
 
   // Update target preview text & badge
@@ -264,12 +276,15 @@ function updateVirtualKeyboardTarget(expectedChar) {
   const previewText = document.getElementById('targetKeyPreview');
   const leniencyTag = document.getElementById('leniencyIndicator');
 
-  const displayKey = expectedChar === ' ' ? 'SPACE' : expectedChar.toUpperCase();
+  const displayKey = expectedChar === ' ' ? 'SPACE' : (expectedChar === '\n' ? 'ENTER' : expectedChar.toUpperCase());
   if (previewBadge) previewBadge.textContent = info.name;
   if (previewText) previewText.innerHTML = `Target Key: <strong>${escapeHtml(displayKey)}</strong>`;
 
   if (leniencyTag) {
-    if (appState.settings.lenientPunctuation && PUNCTUATION_SET.has(expectedChar)) {
+    if (expectedChar === '\n') {
+      leniencyTag.textContent = "Enter or Space";
+      leniencyTag.style.display = "inline-block";
+    } else if (appState.settings.lenientPunctuation && PUNCTUATION_SET.has(expectedChar)) {
       leniencyTag.textContent = "Space Skips Punctuation";
       leniencyTag.style.display = "inline-block";
     } else if (appState.settings.ignoreCase && expectedChar !== charLower) {
@@ -291,6 +306,8 @@ function updateVirtualKeyboardTarget(expectedChar) {
   let targetKeyEl = null;
   if (expectedChar === ' ') {
     targetKeyEl = document.querySelector('.key[data-key=" "]');
+  } else if (expectedChar === '\n') {
+    targetKeyEl = document.querySelector('.key[data-key="enter"]');
   } else {
     targetKeyEl = document.querySelector(`.key[data-key="${charLower}"]`);
     if (!targetKeyEl) {
@@ -307,16 +324,21 @@ function updateVirtualKeyboardTarget(expectedChar) {
 function animateKeyPressed(key) {
   if (!appState.settings.showVirtualKeyboard || !appState.settings.keyAnimations) return;
 
-  const charLower = key.toLowerCase();
-  let keyEl = document.querySelector(`.key[data-key="${charLower}"]`);
-  if (!keyEl && key === ' ') keyEl = document.querySelector('.key[data-key=" "]');
-  if (!keyEl) keyEl = document.querySelector(`.key[data-sub="${key}"]`);
+  const charLower = (key || '').toLowerCase();
+  let keyEl = null;
+  if (key === ' ' || charLower === 'space') keyEl = document.querySelector('.key[data-key=" "]');
+  else if (key === '\n' || charLower === 'enter') keyEl = document.querySelector('.key[data-key="enter"]');
+  else if (charLower === 'backspace') keyEl = document.querySelector('.key[data-key="backspace"]');
+  else {
+    keyEl = document.querySelector(`.key[data-key="${charLower}"]`);
+    if (!keyEl) keyEl = document.querySelector(`.key[data-sub="${key}"]`);
+  }
 
   if (keyEl) {
     keyEl.classList.add('key-pressed');
     setTimeout(() => {
       keyEl.classList.remove('key-pressed');
-    }, 110);
+    }, 120);
   }
 }
 
@@ -682,8 +704,12 @@ function handleKeystroke(key) {
     return;
   }
 
+  // Handle Enter / Newline normalization
+  let inputKey = key;
+  if (key === 'Enter') inputKey = '\n';
+
   // Ignore non-printable keys
-  if (key.length !== 1) return;
+  if (inputKey !== '\n' && inputKey.length !== 1) return;
 
   // Start timer on first keystroke
   if (appState.session.status !== 'active') {
@@ -693,16 +719,88 @@ function handleKeystroke(key) {
 
   const expectedChar = text[idx];
 
+  // Helper for flexible character matching (case, quotes, dashes, whitespace)
+  const areEquivalentChars = (a, b) => {
+    if (a === b) return true;
+    if (appState.settings.ignoreCase && a.toLowerCase() === b.toLowerCase()) return true;
+    // Quotes leniency (straight vs smart single and double quotes)
+    if ("'\u2018\u2019`".includes(a) && "'\u2018\u2019`".includes(b)) return true;
+    if ('"\u201c\u201d«»'.includes(a) && '"\u201c\u201d«»'.includes(b)) return true;
+    // Dashes leniency (hyphen, en-dash, em-dash)
+    if ('-\u2013\u2014_'.includes(a) && '-\u2013\u2014_'.includes(b)) return true;
+    // Whitespace leniency (space, non-breaking space, tab)
+    if (' \u00a0\t'.includes(a) && ' \u00a0\t'.includes(b)) return true;
+    return false;
+  };
+
+  // ------------------------------------------------------------------
+  // Rule 0: Newline / Paragraph Transition Handling
+  // ------------------------------------------------------------------
+  if (expectedChar === '\n' || expectedChar === '\r') {
+    // If user pressed Enter, newline, or Space: accept and advance past all consecutive newlines!
+    if (inputKey === '\n' || inputKey === ' ') {
+      appState.session.keystrokes.push({
+        expected: expectedChar,
+        typed: inputKey,
+        correct: true,
+        skipped: false,
+        timestamp: Date.now()
+      });
+      appState.session.currentIndex++;
+      while (appState.session.currentIndex < text.length && 
+             (text[appState.session.currentIndex] === '\n' || text[appState.session.currentIndex] === '\r')) {
+        appState.session.currentIndex++;
+      }
+      playKeySound(false);
+      animateKeyPressed(inputKey === '\n' ? 'Enter' : 'Space');
+      renderPracticeView();
+      if (appState.session.currentIndex >= text.length) finishSession();
+      return;
+    }
+
+    // If user directly typed the next letter (e.g. typing 'W' in 'We' or 'R' in 'Readers' across newlines/spaces)
+    let lookahead = idx;
+    while (lookahead < text.length && (text[lookahead] === '\n' || text[lookahead] === '\r' || text[lookahead] === ' ' || PUNCTUATION_SET.has(text[lookahead]))) {
+      lookahead++;
+    }
+    if (lookahead < text.length && areEquivalentChars(inputKey, text[lookahead])) {
+      appState.session.currentIndex = lookahead + 1;
+      appState.session.keystrokes.push({
+        expected: text[lookahead],
+        typed: inputKey,
+        correct: true,
+        skipped: false,
+        timestamp: Date.now()
+      });
+      playKeySound(false);
+      animateKeyPressed(inputKey);
+      renderPracticeView();
+      if (appState.session.currentIndex >= text.length) finishSession();
+      return;
+    }
+  }
+
   // ------------------------------------------------------------------
   // Rule 1: Lenient Punctuation (Space skips punctuation without errors)
   // ------------------------------------------------------------------
-  if (appState.settings.lenientPunctuation) {
-    if (PUNCTUATION_SET.has(expectedChar)) {
-      // User pressed space on punctuation: skip punctuation gracefully!
-      if (key === ' ') {
-        // Record skipped punctuation mark
+  if (appState.settings.lenientPunctuation && PUNCTUATION_SET.has(expectedChar)) {
+    // User pressed space on punctuation: skip punctuation gracefully!
+    if (inputKey === ' ') {
+      // Record skipped punctuation mark
+      appState.session.keystrokes.push({
+        expected: expectedChar,
+        typed: ' ',
+        correct: true,
+        skipped: true,
+        timestamp: Date.now()
+      });
+      appState.session.currentIndex++;
+      idx = appState.session.currentIndex;
+
+      // Skip any additional consecutive punctuation marks
+      while (idx < text.length && PUNCTUATION_SET.has(text[idx])) {
         appState.session.keystrokes.push({
-          expected: expectedChar,
+          expected: text[idx],
           typed: ' ',
           correct: true,
           skipped: true,
@@ -710,93 +808,63 @@ function handleKeystroke(key) {
         });
         appState.session.currentIndex++;
         idx = appState.session.currentIndex;
-
-        // Skip any additional consecutive punctuation marks
-        while (idx < text.length && PUNCTUATION_SET.has(text[idx])) {
-          appState.session.keystrokes.push({
-            expected: text[idx],
-            typed: ' ',
-            correct: true,
-            skipped: true,
-            timestamp: Date.now()
-          });
-          appState.session.currentIndex++;
-          idx = appState.session.currentIndex;
-        }
-
-        // If immediately followed by a space, consume the space that the user typed!
-        if (idx < text.length && text[idx] === ' ') {
-          appState.session.keystrokes.push({
-            expected: ' ',
-            typed: ' ',
-            correct: true,
-            skipped: false,
-            timestamp: Date.now()
-          });
-          appState.session.currentIndex++;
-        }
-
-        playKeySound(false);
-        animateKeyPressed('Space');
-        renderPracticeView();
-
-        if (appState.session.currentIndex >= text.length) {
-          finishSession();
-        }
-        return;
       }
 
-      // If user typed the next word letter directly (e.g. typing 's' on apostrophe in "it's" or 'w' on quote in '"word"')
-      if (idx + 1 < text.length) {
-        const nextChar = text[idx + 1];
-        const isNextMatch = (key === nextChar) || 
-          (appState.settings.ignoreCase && key.toLowerCase() === nextChar.toLowerCase());
-
-        if (isNextMatch) {
-          // Auto-skip the punctuation
-          appState.session.keystrokes.push({
-            expected: expectedChar,
-            typed: key,
-            correct: true,
-            skipped: true,
-            timestamp: Date.now()
-          });
-          // Accept the letter
-          appState.session.keystrokes.push({
-            expected: nextChar,
-            typed: key,
-            correct: true,
-            skipped: false,
-            timestamp: Date.now()
-          });
-          appState.session.currentIndex += 2;
-          playKeySound(false);
-          animateKeyPressed(key);
-          renderPracticeView();
-
-          if (appState.session.currentIndex >= text.length) {
-            finishSession();
-          }
-          return;
-        }
+      // If immediately followed by a space, consume the space that the user typed!
+      if (idx < text.length && text[idx] === ' ') {
+        appState.session.keystrokes.push({
+          expected: ' ',
+          typed: ' ',
+          correct: true,
+          skipped: false,
+          timestamp: Date.now()
+        });
+        appState.session.currentIndex++;
       }
+
+      playKeySound(false);
+      animateKeyPressed('Space');
+      renderPracticeView();
+
+      if (appState.session.currentIndex >= text.length) {
+        finishSession();
+      }
+      return;
+    }
+
+    // If user typed the next word letter directly (e.g. typing 'w' or 'r' across punctuation and spaces)
+    let lookahead = idx;
+    while (lookahead < text.length && (PUNCTUATION_SET.has(text[lookahead]) || text[lookahead] === ' ')) {
+      lookahead++;
+    }
+    if (lookahead < text.length && areEquivalentChars(inputKey, text[lookahead])) {
+      appState.session.currentIndex = lookahead + 1;
+      appState.session.keystrokes.push({
+        expected: text[lookahead],
+        typed: inputKey,
+        correct: true,
+        skipped: false,
+        timestamp: Date.now()
+      });
+      playKeySound(false);
+      animateKeyPressed(inputKey);
+      renderPracticeView();
+
+      if (appState.session.currentIndex >= text.length) {
+        finishSession();
+      }
+      return;
     }
   }
 
   // ------------------------------------------------------------------
-  // Rule 2: Case Leniency & Character Evaluation
+  // Rule 2: Character Evaluation with Case & Equivalent Leniency
   // ------------------------------------------------------------------
-  let isCorrect = false;
-  if (appState.settings.ignoreCase) {
-    // If ignoreCase is active: lowercase and uppercase match equally!
-    isCorrect = (key === expectedChar) || (key.toLowerCase() === expectedChar.toLowerCase());
-  } else {
-    isCorrect = (key === expectedChar);
-  }
+  const isCorrect = areEquivalentChars(inputKey, expectedChar);
 
   // Audio feedback
   playKeySound(!isCorrect);
-  animateKeyPressed(key);
+  animateKeyPressed(inputKey);
 
   // Error handling modes
   if (!isCorrect) {
@@ -824,7 +892,7 @@ function handleKeystroke(key) {
   // Save keystroke
   appState.session.keystrokes.push({
     expected: expectedChar,
-    typed: key,
+    typed: inputKey,
     correct: isCorrect,
     timestamp: Date.now()
   });
@@ -966,6 +1034,7 @@ function cleanBookText(text) {
   if (!text) return '';
   return text
     .replace(/\r\n|\r/g, '\n')
+    .replace(/[\u00a0\u2000-\u200b\u202f]/g, ' ')
     .replace(/[ \t]+/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -1447,6 +1516,18 @@ window.addEventListener('DOMContentLoaded', () => {
     hiddenInput.focus();
   });
 
+  if (hiddenInput) {
+    hiddenInput.addEventListener('input', () => {
+      const val = hiddenInput.value;
+      if (val) {
+        for (const ch of val) {
+          handleKeystroke(ch);
+        }
+        hiddenInput.value = '';
+      }
+    });
+  }
+
   const updatePauseButtonLabel = (text) => {
     const textEl = document.getElementById('btnPauseSessionText');
     if (textEl) textEl.textContent = text;
@@ -1471,7 +1552,10 @@ window.addEventListener('DOMContentLoaded', () => {
     const isModalOpen = document.querySelector('.modal-overlay.active');
     if (!isPracticeActive || isModalOpen) return;
 
-    if (e.key === 'Backspace' || e.key.length === 1) {
+    // Do not intercept browser shortcuts like Ctrl+R, Ctrl+W, Ctrl+C, Ctrl+V, etc.
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+    if (e.key === 'Backspace' || e.key === 'Enter' || e.key.length === 1) {
       e.preventDefault();
       handleKeystroke(e.key);
     }

@@ -995,6 +995,16 @@ a {
   transition: transform 0.08s ease, background-color 0.1s ease, border-color 0.15s ease;
   flex: 1;
   max-width: 52px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.key:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--border-hover);
+  transform: translateY(-1px);
 }
 
 .key-sub {
@@ -1055,11 +1065,13 @@ a {
   font-weight: 700;
 }
 
+.key:active,
 .key.key-pressed {
-  transform: translateY(1.5px) scale(0.97);
+  transform: translateY(2px) scale(0.96);
   background-color: var(--accent) !important;
   color: #ffffff !important;
-  border-color: var(--accent-hover) !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 10px var(--accent) !important;
 }
 
 .virtual-keyboard-container.no-animations .key.target-key {
