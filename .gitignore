@@ -28,3 +28,4 @@ launch_web_gui.sh
 *.typeread-backup
 agentic-orchestrator/
 README-cloudshell.txt
+.vercel

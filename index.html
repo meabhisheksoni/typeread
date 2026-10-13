@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TypeRead — Read what matters. Type what you read.</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%200%20100%20100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Top Header Navigation -->
+  <header class="header-bar">
+    <div class="brand-section">
+      <div class="brand-title">TypeRead</div>
+      <span class="brand-separator">—</span>
+      <div class="active-doc-badge" id="headerDocTitle">No document loaded</div>
+    </div>
+
+    <nav>
+      <ul class="nav-tabs">
+        <li><button class="nav-btn active" data-view="home">🏠 Home</button></li>
+        <li><button class="nav-btn" data-view="library">📚 Library</button></li>
+        <li><button class="nav-btn" data-view="practice">⌨️ Practice</button></li>
+        <li><button class="nav-btn" data-view="stats">📊 Stats</button></li>
+      </ul>
+    </nav>
+
+    <div class="header-right">
+      <button class="icon-btn" id="btnOpenSearch" title="Search Book (Ctrl+F)">🔍 Search</button>
+      <button class="icon-btn" id="btnOpenBookmarks" title="Bookmarks">🔖 Bookmark</button>
+      <button class="icon-btn" id="btnOpenSettings" title="Settings">⚙️ Settings</button>
+    </div>
+  </header>
+
+  <!-- Main View Container -->
+  <main class="main-content">
+    
+    <!-- View 1: Home -->
+    <section class="view-section active" id="viewHome">
+      <h1 class="home-greeting">Good day. Ready to practice?</h1>
+
+      <div class="hero-practice-card">
+        <div class="hero-left">
+          <div class="card-title">CONTINUE PRACTICE</div>
+          <h3 id="heroDocTitle">A Tale of Two Cities</h3>
+          <p id="heroChapterInfo">Chapter 1: The Beginning • 0% completed</p>
+          <button class="btn-primary" id="btnHeroContinue">Resume Session ➔</button>
+        </div>
+        <div class="hero-right">
+          <button class="btn-secondary" id="btnHeroImport">Upload Book (PDF, EPUB, TXT)</button>
+        </div>
+      </div>
+
+      <!-- Quick Upload Dropzone -->
+      <div class="dropzone-box" id="homeDropzone">
+        <div class="dropzone-icon">📥</div>
+        <div class="dropzone-title">Upload any Book or Document</div>
+        <div class="dropzone-desc">Drag & drop your <strong>PDF</strong>, <strong>EPUB</strong>, or <strong>TXT</strong> file here, or click to browse</div>
+        <div class="dropzone-meta">Auto-segments into chapters • Extracts table of contents & outlines</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">RECENT DOCUMENTS IN LIBRARY</div>
+        <div class="recent-docs-grid" id="recentDocsGrid">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- View 2: Library -->
+    <section class="view-section" id="viewLibrary">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+        <div>
+          <h2>Document Library</h2>
+          <p style="color:var(--text-secondary); font-size:0.88rem; margin-top:4px;">Upload any book in PDF, EPUB, or TXT format. The engine sorts out chapters automatically.</p>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button class="btn-secondary" id="btnPasteText">Paste Raw Text</button>
+          <button class="btn-primary" id="btnUploadFile">+ Upload Book (PDF, EPUB, TXT)</button>
+          <input type="file" id="fileUploadInput" accept=".pdf,.epub,.txt,.md,.text" style="display:none;">
+        </div>
+      </div>
+
+      <!-- Library Dropzone -->
+      <div class="dropzone-box" id="libraryDropzone" style="margin-bottom:24px;">
+        <div class="dropzone-icon">📚</div>
+        <div class="dropzone-title">Drop PDF, EPUB, or TXT file here</div>
+        <div class="dropzone-desc">The background parser extracts table of contents and indexes every chapter for typing.</div>
+      </div>
+
+      <div class="recent-docs-grid" id="libraryDocsGrid">
+        <!-- Populated via JS -->
+      </div>
+    </section>
+
+    <!-- View 3: Practice (Dual-View Synchronized) -->
+    <section class="view-section" id="viewPractice">
+      <div class="practice-container">
+        
+        <!-- Left Sidebar: Chapter Tree -->
+        <aside class="sidebar-nav">
+          <div class="sidebar-heading" id="practiceDocHeading">BOOK CHAPTERS</div>
+          <ul class="chapter-tree" id="chapterTreeList">
+            <!-- Populated dynamically -->
+          </ul>
+        </aside>
+
+        <!-- Right Workspace: Synchronized Views -->
+        <div class="practice-workspace">
+          
+          <!-- Upper Reading View -->
+          <div class="source-reader-box">
+            <div class="box-label">SOURCE TEXT / READING VIEW</div>
+            <div class="source-text-stream" id="sourceStream"></div>
+          </div>
+
+          <!-- Lower Typing Canvas -->
+          <div class="typing-canvas-box" id="typingCanvasBox" tabindex="0">
+            <div class="box-label">TYPING CANVAS (CLICK HERE & TYPE)</div>
+            <div class="typing-canvas-stream" id="typingStream"></div>
+            <input type="text" id="keystrokeInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+          </div>
+
+          <!-- On-Screen Virtual Keyboard & Finger Guide -->
+          <div class="virtual-keyboard-container" id="virtualKeyboardContainer">
+            <!-- Finger Guide Banner -->
+            <div class="finger-guide-bar" id="fingerGuideBar">
+              <div class="finger-guide-info">
+                <span class="finger-badge" id="fingerGuideBadge">☝️ Left Index</span>
+                <span class="target-key-preview" id="targetKeyPreview">Target Key: <strong>F</strong></span>
+                <span class="leniency-indicator" id="leniencyIndicator" title="Case and punctuation leniency active">⚡ Lenient Mode Active</span>
+              </div>
+              <div class="hands-diagram" id="handsDiagram">
+                <div class="hand-side left-hand" title="Left Hand">
+                  <span class="finger-dot" data-finger="left-pinky" title="Pinky (1, Q, A, Z)">🌸</span>
+                  <span class="finger-dot" data-finger="left-ring" title="Ring (2, W, S, X)">💍</span>
+                  <span class="finger-dot" data-finger="left-middle" title="Middle (3, E, D, C)">🖕</span>
+                  <span class="finger-dot" data-finger="left-index" title="Index (4, 5, R, T, F, G, V, B)">☝️</span>
+                  <span class="finger-dot" data-finger="thumb" title="Thumb (Space)">👍</span>
+                </div>
+                <div class="hand-separator">|</div>
+                <div class="hand-side right-hand" title="Right Hand">
+                  <span class="finger-dot" data-finger="thumb" title="Thumb (Space)">👍</span>
+                  <span class="finger-dot" data-finger="right-index" title="Index (6, 7, Y, U, H, J, N, M)">☝️</span>
+                  <span class="finger-dot" data-finger="right-middle" title="Middle (8, I, K, ,)">🖕</span>
+                  <span class="finger-dot" data-finger="right-ring" title="Ring (9, O, L, .)">💍</span>
+                  <span class="finger-dot" data-finger="right-pinky" title="Pinky (0, P, ;, ', /, -)">🌸</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Virtual Keyboard Grid -->
+            <div class="keyboard-grid" id="keyboardGrid">
+              <!-- Dynamically populated rows -->
+            </div>
+          </div>
+
+          <!-- Metrics Status Bar -->
+          <footer class="practice-metrics-bar">
+            <div class="metrics-group">
+              <div class="metric-item">
+                <span class="metric-val" id="metricWpm">0</span>
+                <span class="metric-lbl">WPM</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-val" id="metricAcc">100.0%</span>
+                <span class="metric-lbl">ACCURACY</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-val" id="metricErrors">0</span>
+                <span class="metric-lbl">ERRORS</span>
+              </div>
+            </div>
+
+            <div class="progress-track">
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progressBarFill"></div>
+              </div>
+              <div class="progress-text" id="progressPctText">0% COMPLETE</div>
+            </div>
+
+            <div class="practice-controls">
+              <button class="btn-secondary" id="btnToggleKeyboard" title="Toggle On-Screen Keyboard Guide">⌨️ Keyboard: ON</button>
+              <button class="btn-secondary" id="btnPauseSession">Pause (Esc)</button>
+              <button class="btn-secondary" id="btnRestartSession">Restart</button>
+            </div>
+          </footer>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- View 4: Stats -->
+    <section class="view-section" id="viewStats">
+      <div class="stats-header">
+        <h2>Analytics & Retention Dashboard</h2>
+        <button class="btn-secondary" id="btnRefreshStats">Refresh</button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-card-val" id="statAvgWpm">0</div>
+          <div class="stat-card-lbl">AVG NET WPM</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-val" id="statAccuracy">0.0%</div>
+          <div class="stat-card-lbl">ACCURACY</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-val" id="statPracticeTime">0m</div>
+          <div class="stat-card-lbl">PRACTICE TIME</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-val" id="statCharsTyped">0</div>
+          <div class="stat-card-lbl">CHARS TYPED</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-val" id="statSessions">0</div>
+          <div class="stat-card-lbl">SESSIONS</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div class="card-title">WEAK-KEY ANALYSIS & TARGETED DRILLS</div>
+          <button class="btn-primary" id="btnGenerateDrill" style="font-size:0.85rem; padding:6px 14px;">Generate Targeted Drill</button>
+        </div>
+        <table class="weak-key-table">
+          <thead>
+            <tr>
+              <th>Key</th>
+              <th>Errors</th>
+              <th>Occurrences</th>
+              <th>Error Rate</th>
+            </tr>
+          </thead>
+          <tbody id="weakKeysTableBody">
+            <tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:20px;">No keystroke errors recorded yet. Practice to generate insights!</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-content" style="max-width: 580px;">
+      <div class="modal-header">
+        <div class="modal-title">Settings & Preferences</div>
+        <button class="modal-close" data-close="settingsModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        
+        <!-- Section: Appearance -->
+        <div class="settings-section-title">THEME & TYPOGRAPHY</div>
+        <div class="settings-row-grid">
+          <div class="form-group">
+            <label class="form-label">Color Theme</label>
+            <select class="form-control" id="settingTheme">
+              <option value="dark">Dark (Default)</option>
+              <option value="light">Light</option>
+              <option value="sepia">Sepia (Book Warm)</option>
+              <option value="paper">Paper (E-Reader Neutral)</option>
+              <option value="high_contrast">High Contrast (OLED)</option>
+              <option value="midnight">Midnight (Deep Blue)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Font Family</label>
+            <select class="form-control" id="settingFont">
+              <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
+              <option value="'Fira Code', monospace">Fira Code</option>
+              <option value="monospace">Standard Monospace</option>
+              <option value="Georgia, serif">Georgia (Serif Book)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="settings-row-grid">
+          <div class="form-group">
+            <label class="form-label">Font Size</label>
+            <select class="form-control" id="settingFontSize">
+              <option value="14px">14px (Standard)</option>
+              <option value="16px">16px (Comfortable)</option>
+              <option value="18px">18px (Large)</option>
+              <option value="20px">20px (Extra Large)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Caret Style</label>
+            <select class="form-control" id="settingCaret">
+              <option value="block">Block (Default)</option>
+              <option value="beam">Beam (Line)</option>
+              <option value="underline">Underline</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Section: Audio & Animation Controls -->
+        <div class="settings-section-title">AUDIO, KEYBOARD & FINGER ANIMATIONS</div>
+        <div class="toggles-list">
+          <label class="toggle-control-label">
+            <input type="checkbox" id="settingSound" checked>
+            <span class="toggle-text">
+              <strong>Keystroke Sound Effects</strong>
+              <small>Subtle mechanical audio feedback when typing</small>
+            </span>
+          </label>
+
+          <label class="toggle-control-label">
+            <input type="checkbox" id="settingShowKeyboard" checked>
+            <span class="toggle-text">
+              <strong>Show On-Screen Virtual Keyboard</strong>
+              <small>Display interactive visual keyboard below practice canvas</small>
+            </span>
+          </label>
+
+          <label class="toggle-control-label">
+            <input type="checkbox" id="settingKeyAnimations" checked>
+            <span class="toggle-text">
+              <strong>Key Press & Target Pulse Animations</strong>
+              <small>Animate keys and glowing target guide on press</small>
+            </span>
+          </label>
+
+          <label class="toggle-control-label">
+            <input type="checkbox" id="settingFingerGuide" checked>
+            <span class="toggle-text">
+              <strong>Animated Finger Guide & Placement</strong>
+              <small>Show recommended finger highlights and hand guide</small>
+            </span>
+          </label>
+        </div>
+
+        <!-- Section: Typing Leniency Rules -->
+        <div class="settings-section-title">TYPING LENIENCY & RULES</div>
+        <div class="toggles-list">
+          <label class="toggle-control-label">
+            <input type="checkbox" id="settingIgnoreCase" checked>
+            <span class="toggle-text">
+              <strong>Ignore Capitalization (Case-Insensitive)</strong>
+              <small>Typing lowercase letters for uppercase will not trigger warnings or red marks</small>
+            </span>
+          </label>
+
+          <label class="toggle-control-label">
+            <input type="checkbox" id="settingLenientPunctuation" checked>
+            <span class="toggle-text">
+              <strong>Lenient Punctuation (Space Skips Punctuation)</strong>
+              <small>Pressing Spacebar on commas, periods, quotes, or dashes gracefully advances without errors</small>
+            </span>
+          </label>
+        </div>
+
+        <div class="form-group" style="margin-top:14px;">
+          <label class="form-label">Error Handling Mode</label>
+          <select class="form-control" id="settingErrorMode">
+            <option value="allow">Allow with backspace correction</option>
+            <option value="strict">Strict (Must type correct character to advance)</option>
+          </select>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" data-close="settingsModal">Save Preferences</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search Modal -->
+  <div class="modal-overlay" id="searchModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">Search In Document</div>
+        <button class="modal-close" data-close="searchModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <input type="text" class="form-control" id="searchQueryInput" placeholder="Type a word or phrase...">
+        </div>
+        <div id="searchResultsList" style="max-height:300px; overflow-y:auto;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Paste Raw Text Modal -->
+  <div class="modal-overlay" id="pasteModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">Import Text to Practice</div>
+        <button class="modal-close" data-close="pasteModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Document Title</label>
+          <input type="text" class="form-control" id="pasteTitleInput" placeholder="e.g. My Study Notes">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Passage / Content</label>
+          <textarea class="form-control" id="pasteContentInput" rows="8" placeholder="Paste your article, book chapter, or practice sentences here..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" id="btnSubmitPastedDoc">Start Practicing</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Processing / Parsing Book Modal -->
+  <div class="modal-overlay" id="parsingModal">
+    <div class="modal-content" style="max-width: 440px; text-align:center;">
+      <div class="modal-header" style="justify-content:center;">
+        <div class="modal-title" id="parsingModalTitle">Processing Book...</div>
+      </div>
+      <div class="modal-body" style="padding: 30px 20px;">
+        <div class="parsing-spinner" id="parsingSpinner"></div>
+        <h4 id="parsingFileName" style="margin: 16px 0 8px; font-size:1.05rem;">Parsing Book Structure</h4>
+        <p id="parsingStatusText" style="color:var(--text-secondary); font-size:0.88rem; margin-bottom:18px;">Extracting table of contents, outlines, and chapter sections...</p>
+        <div class="progress-bar-bg" style="height:8px; margin-bottom:8px;">
+          <div class="progress-bar-fill" id="parsingProgressBar" style="width: 25%; transition: width 0.3s ease;"></div>
+        </div>
+        <span id="parsingPercent" style="font-size:0.8rem; color:var(--text-muted);">Indexing...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vendor Libraries for Client-Side Offline Parsing -->
+  <script src="vendor/pdf.min.js"></script>
+  <script src="vendor/jszip.min.js"></script>
+  <script>
+    if (window.pdfjsLib) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'vendor/pdf.worker.min.js';
+    }
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>

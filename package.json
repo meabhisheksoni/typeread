@@ -1,0 +1,8 @@
+{
+  "name": "type-read",
+  "version": "1.0.0",
+  "description": "TypeRead - Read what matters. Type what you read. Improve while learning.",
+  "scripts": {
+    "start": "serve ."
+  }
+}
