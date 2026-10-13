@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TypeRead — Read what matters. Type what you read.</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%200%20100%20100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>">
+  <title>TypeRead — Read with focus. Type with speed.</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2338bdf8%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z%22/><path d=%22M6 6h10%22/><path d=%22M6 10h10%22/></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -15,24 +15,62 @@
   <!-- Top Header Navigation -->
   <header class="header-bar">
     <div class="brand-section">
-      <div class="brand-title">TypeRead</div>
-      <span class="brand-separator">—</span>
-      <div class="active-doc-badge" id="headerDocTitle">No document loaded</div>
+      <div class="brand-logo">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
+          <path d="M6 6h10"/>
+          <path d="M6 10h10"/>
+        </svg>
+        <span class="brand-title">TypeRead</span>
+      </div>
+      <div class="active-doc-badge" id="headerDocTitle">
+        <span class="pulse-dot"></span>
+        <span class="badge-text">No document loaded</span>
+      </div>
     </div>
 
-    <nav>
+    <nav class="nav-container">
       <ul class="nav-tabs">
-        <li><button class="nav-btn active" data-view="home">🏠 Home</button></li>
-        <li><button class="nav-btn" data-view="library">📚 Library</button></li>
-        <li><button class="nav-btn" data-view="practice">⌨️ Practice</button></li>
-        <li><button class="nav-btn" data-view="stats">📊 Stats</button></li>
+        <li>
+          <button class="nav-btn active" data-view="home">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            <span>Home</span>
+          </button>
+        </li>
+        <li>
+          <button class="nav-btn" data-view="library">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/></svg>
+            <span>Library</span>
+          </button>
+        </li>
+        <li>
+          <button class="nav-btn" data-view="practice">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="M6 8h.01"/><path d="M10 8h.01"/><path d="M14 8h.01"/><path d="M18 8h.01"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/><path d="M7 16h10"/></svg>
+            <span>Practice</span>
+          </button>
+        </li>
+        <li>
+          <button class="nav-btn" data-view="stats">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg>
+            <span>Stats</span>
+          </button>
+        </li>
       </ul>
     </nav>
 
     <div class="header-right">
-      <button class="icon-btn" id="btnOpenSearch" title="Search Book (Ctrl+F)">🔍 Search</button>
-      <button class="icon-btn" id="btnOpenBookmarks" title="Bookmarks">🔖 Bookmark</button>
-      <button class="icon-btn" id="btnOpenSettings" title="Settings">⚙️ Settings</button>
+      <button class="icon-btn" id="btnOpenSearch" title="Search Book (Ctrl+F)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <span class="btn-label">Search</span>
+      </button>
+      <button class="icon-btn" id="btnOpenBookmarks" title="Bookmarks">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+        <span class="btn-label">Bookmark</span>
+      </button>
+      <button class="icon-btn" id="btnOpenSettings" title="Settings">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span class="btn-label">Settings</span>
+      </button>
     </div>
   </header>
 
@@ -41,30 +79,49 @@
     
     <!-- View 1: Home -->
     <section class="view-section active" id="viewHome">
-      <h1 class="home-greeting">Good day. Ready to practice?</h1>
+      <div class="home-hero-header">
+        <span class="eyebrow-tag">DISTRACTION-FREE TOUCH TYPING</span>
+        <h1 class="home-greeting">Clean slate. Read with focus, type with speed.</h1>
+        <p class="home-subtext">Absorb books sentence by sentence while sharpening your typing cadence.</p>
+      </div>
 
       <div class="hero-practice-card">
         <div class="hero-left">
-          <div class="card-title">CONTINUE PRACTICE</div>
-          <h3 id="heroDocTitle">A Tale of Two Cities</h3>
-          <p id="heroChapterInfo">Chapter 1: The Beginning • 0% completed</p>
-          <button class="btn-primary" id="btnHeroContinue">Resume Session ➔</button>
-        </div>
-        <div class="hero-right">
-          <button class="btn-secondary" id="btnHeroImport">Upload Book (PDF, EPUB, TXT)</button>
+          <div class="card-eyebrow">ACTIVE SESSION</div>
+          <h2 class="hero-doc-title" id="heroDocTitle">A Tale of Two Cities</h2>
+          <p class="hero-chapter-info" id="heroChapterInfo">Chapter 1: The Period</p>
+          <div class="hero-action-row">
+            <button class="btn-primary" id="btnHeroContinue">
+              <span>Resume Session</span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+            <button class="btn-secondary" id="btnHeroImport">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+              <span>Upload Book</span>
+            </button>
+          </div>
         </div>
       </div>
 
       <!-- Quick Upload Dropzone -->
       <div class="dropzone-box" id="homeDropzone">
-        <div class="dropzone-icon">📥</div>
+        <div class="dropzone-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" x2="12" y1="3" y2="15"/>
+          </svg>
+        </div>
         <div class="dropzone-title">Upload any Book or Document</div>
         <div class="dropzone-desc">Drag & drop your <strong>PDF</strong>, <strong>EPUB</strong>, or <strong>TXT</strong> file here, or click to browse</div>
-        <div class="dropzone-meta">Auto-segments into chapters • Extracts table of contents & outlines</div>
+        <div class="dropzone-meta">Auto-segments into chapters • Instant outline & table-of-contents extraction</div>
       </div>
 
-      <div class="card">
-        <div class="card-title">RECENT DOCUMENTS IN LIBRARY</div>
+      <div class="section-card">
+        <div class="card-header-row">
+          <div class="card-title">RECENT DOCUMENTS</div>
+          <button class="btn-text-link" onclick="switchView('library')">View Library ➔</button>
+        </div>
         <div class="recent-docs-grid" id="recentDocsGrid">
           <!-- Populated dynamically via JS -->
         </div>
@@ -73,21 +130,30 @@
 
     <!-- View 2: Library -->
     <section class="view-section" id="viewLibrary">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+      <div class="library-header-bar">
         <div>
           <h2>Document Library</h2>
-          <p style="color:var(--text-secondary); font-size:0.88rem; margin-top:4px;">Upload any book in PDF, EPUB, or TXT format. The engine sorts out chapters automatically.</p>
+          <p class="section-subtitle">Select any chapter to practice or ingest your personal e-books.</p>
         </div>
-        <div style="display:flex; gap:10px;">
+        <div class="library-action-group">
           <button class="btn-secondary" id="btnPasteText">Paste Raw Text</button>
-          <button class="btn-primary" id="btnUploadFile">+ Upload Book (PDF, EPUB, TXT)</button>
+          <button class="btn-primary" id="btnUploadFile">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>Upload Book (PDF, EPUB, TXT)</span>
+          </button>
           <input type="file" id="fileUploadInput" accept=".pdf,.epub,.txt,.md,.text" style="display:none;">
         </div>
       </div>
 
       <!-- Library Dropzone -->
-      <div class="dropzone-box" id="libraryDropzone" style="margin-bottom:24px;">
-        <div class="dropzone-icon">📚</div>
+      <div class="dropzone-box" id="libraryDropzone">
+        <div class="dropzone-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
+            <path d="M6 6h10"/>
+            <path d="M6 10h10"/>
+          </svg>
+        </div>
         <div class="dropzone-title">Drop PDF, EPUB, or TXT file here</div>
         <div class="dropzone-desc">The background parser extracts table of contents and indexes every chapter for typing.</div>
       </div>
@@ -130,25 +196,25 @@
             <!-- Finger Guide Banner -->
             <div class="finger-guide-bar" id="fingerGuideBar">
               <div class="finger-guide-info">
-                <span class="finger-badge" id="fingerGuideBadge">☝️ Left Index</span>
+                <span class="finger-badge" id="fingerGuideBadge">Left Index</span>
                 <span class="target-key-preview" id="targetKeyPreview">Target Key: <strong>F</strong></span>
-                <span class="leniency-indicator" id="leniencyIndicator" title="Case and punctuation leniency active">⚡ Lenient Mode Active</span>
+                <span class="leniency-indicator" id="leniencyIndicator" title="Case and punctuation leniency active">Lenient Mode</span>
               </div>
               <div class="hands-diagram" id="handsDiagram">
                 <div class="hand-side left-hand" title="Left Hand">
-                  <span class="finger-dot" data-finger="left-pinky" title="Pinky (1, Q, A, Z)">🌸</span>
-                  <span class="finger-dot" data-finger="left-ring" title="Ring (2, W, S, X)">💍</span>
-                  <span class="finger-dot" data-finger="left-middle" title="Middle (3, E, D, C)">🖕</span>
-                  <span class="finger-dot" data-finger="left-index" title="Index (4, 5, R, T, F, G, V, B)">☝️</span>
-                  <span class="finger-dot" data-finger="thumb" title="Thumb (Space)">👍</span>
+                  <span class="finger-pill" data-finger="left-pinky">L·Pinky</span>
+                  <span class="finger-pill" data-finger="left-ring">L·Ring</span>
+                  <span class="finger-pill" data-finger="left-middle">L·Mid</span>
+                  <span class="finger-pill" data-finger="left-index">L·Index</span>
+                  <span class="finger-pill" data-finger="thumb">Thumb</span>
                 </div>
-                <div class="hand-separator">|</div>
+                <div class="hand-divider"></div>
                 <div class="hand-side right-hand" title="Right Hand">
-                  <span class="finger-dot" data-finger="thumb" title="Thumb (Space)">👍</span>
-                  <span class="finger-dot" data-finger="right-index" title="Index (6, 7, Y, U, H, J, N, M)">☝️</span>
-                  <span class="finger-dot" data-finger="right-middle" title="Middle (8, I, K, ,)">🖕</span>
-                  <span class="finger-dot" data-finger="right-ring" title="Ring (9, O, L, .)">💍</span>
-                  <span class="finger-dot" data-finger="right-pinky" title="Pinky (0, P, ;, ', /, -)">🌸</span>
+                  <span class="finger-pill" data-finger="thumb">Thumb</span>
+                  <span class="finger-pill" data-finger="right-index">R·Index</span>
+                  <span class="finger-pill" data-finger="right-middle">R·Mid</span>
+                  <span class="finger-pill" data-finger="right-ring">R·Ring</span>
+                  <span class="finger-pill" data-finger="right-pinky">R·Pinky</span>
                 </div>
               </div>
             </div>
@@ -184,9 +250,18 @@
             </div>
 
             <div class="practice-controls">
-              <button class="btn-secondary" id="btnToggleKeyboard" title="Toggle On-Screen Keyboard Guide">⌨️ Keyboard: ON</button>
-              <button class="btn-secondary" id="btnPauseSession">Pause (Esc)</button>
-              <button class="btn-secondary" id="btnRestartSession">Restart</button>
+              <button class="btn-secondary" id="btnToggleKeyboard" title="Toggle On-Screen Keyboard Guide">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="M6 8h.01"/><path d="M10 8h.01"/><path d="M14 8h.01"/><path d="M18 8h.01"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/><path d="M7 16h10"/></svg>
+                <span id="btnToggleKeyboardText">Keyboard: ON</span>
+              </button>
+              <button class="btn-secondary" id="btnPauseSession">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                <span id="btnPauseSessionText">Pause (Esc)</span>
+              </button>
+              <button class="btn-secondary" id="btnRestartSession">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                <span>Restart</span>
+              </button>
             </div>
           </footer>
 
@@ -197,8 +272,14 @@
     <!-- View 4: Stats -->
     <section class="view-section" id="viewStats">
       <div class="stats-header">
-        <h2>Analytics & Retention Dashboard</h2>
-        <button class="btn-secondary" id="btnRefreshStats">Refresh</button>
+        <div>
+          <h2>Analytics & Retention</h2>
+          <p class="section-subtitle">Track typing velocity, error distribution, and finger muscle memory over time.</p>
+        </div>
+        <button class="btn-secondary" id="btnRefreshStats">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          <span>Refresh</span>
+        </button>
       </div>
 
       <div class="stats-grid">
@@ -224,10 +305,16 @@
         </div>
       </div>
 
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div class="card-title">WEAK-KEY ANALYSIS & TARGETED DRILLS</div>
-          <button class="btn-primary" id="btnGenerateDrill" style="font-size:0.85rem; padding:6px 14px;">Generate Targeted Drill</button>
+      <div class="section-card">
+        <div class="card-header-row">
+          <div>
+            <div class="card-title">WEAK-KEY ANALYSIS</div>
+            <p style="color:var(--text-muted); font-size:0.8rem; margin-top:2px;">Targeted drills generated based on keystroke error rates.</p>
+          </div>
+          <button class="btn-primary" id="btnGenerateDrill" style="font-size:0.82rem; padding:7px 14px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span>Generate Targeted Drill</span>
+          </button>
         </div>
         <table class="weak-key-table">
           <thead>
@@ -239,7 +326,7 @@
             </tr>
           </thead>
           <tbody id="weakKeysTableBody">
-            <tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:20px;">No keystroke errors recorded yet. Practice to generate insights!</td></tr>
+            <tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:24px;">No keystroke errors recorded yet. Practice to generate insights!</td></tr>
           </tbody>
         </table>
       </div>
@@ -263,21 +350,21 @@
             <label class="form-label">Color Theme</label>
             <select class="form-control" id="settingTheme">
               <option value="dark">Dark (Default)</option>
-              <option value="light">Light</option>
-              <option value="sepia">Sepia (Book Warm)</option>
-              <option value="paper">Paper (E-Reader Neutral)</option>
+              <option value="light">Light (Porcelain)</option>
+              <option value="sepia">Sepia (Editorial Book)</option>
+              <option value="paper">Paper (Monochrome E-Ink)</option>
+              <option value="midnight">Midnight (Astral Blue)</option>
               <option value="high_contrast">High Contrast (OLED)</option>
-              <option value="midnight">Midnight (Deep Blue)</option>
             </select>
           </div>
 
           <div class="form-group">
-            <label class="form-label">Font Family</label>
+            <label class="form-label">Typing Font</label>
             <select class="form-control" id="settingFont">
               <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
               <option value="'Fira Code', monospace">Fira Code</option>
-              <option value="monospace">Standard Monospace</option>
-              <option value="Georgia, serif">Georgia (Serif Book)</option>
+              <option value="'Source Serif 4', Georgia, serif">Source Serif 4 (Book)</option>
+              <option value="'Inter', sans-serif">Inter (Modern Clean)</option>
             </select>
           </div>
         </div>
@@ -286,7 +373,7 @@
           <div class="form-group">
             <label class="form-label">Font Size</label>
             <select class="form-control" id="settingFontSize">
-              <option value="14px">14px (Standard)</option>
+              <option value="15px">15px (Standard)</option>
               <option value="16px">16px (Comfortable)</option>
               <option value="18px">18px (Large)</option>
               <option value="20px">20px (Extra Large)</option>
@@ -304,7 +391,7 @@
         </div>
 
         <!-- Section: Audio & Animation Controls -->
-        <div class="settings-section-title">AUDIO, KEYBOARD & FINGER ANIMATIONS</div>
+        <div class="settings-section-title">AUDIO, KEYBOARD & ANIMATIONS</div>
         <div class="toggles-list">
           <label class="toggle-control-label">
             <input type="checkbox" id="settingSound" checked>
@@ -333,8 +420,8 @@
           <label class="toggle-control-label">
             <input type="checkbox" id="settingFingerGuide" checked>
             <span class="toggle-text">
-              <strong>Animated Finger Guide & Placement</strong>
-              <small>Show recommended finger highlights and hand guide</small>
+              <strong>Animated Finger Guide & Hand Indicators</strong>
+              <small>Show recommended finger highlights and hand diagram</small>
             </span>
           </label>
         </div>
@@ -427,6 +514,39 @@
           <div class="progress-bar-fill" id="parsingProgressBar" style="width: 25%; transition: width 0.3s ease;"></div>
         </div>
         <span id="parsingPercent" style="font-size:0.8rem; color:var(--text-muted);">Indexing...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chapter Completed Celebration Modal -->
+  <div class="modal-overlay" id="completionModal">
+    <div class="modal-content" style="max-width: 480px; text-align:center;">
+      <div class="modal-header" style="justify-content:center; border:none; padding-bottom:0;">
+        <div class="celebration-badge">CHAPTER COMPLETED</div>
+      </div>
+      <div class="modal-body" style="padding: 20px 24px 28px;">
+        <h2 id="completionTitle" style="font-size:1.4rem; font-weight:700; margin-bottom:8px;">Superb Focus!</h2>
+        <p id="completionSubtitle" style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:24px;">You have successfully completed this chapter.</p>
+        
+        <div class="completion-metrics-grid">
+          <div class="completion-stat-box">
+            <div class="stat-number" id="completionWpm">0</div>
+            <div class="stat-label">SPEED (WPM)</div>
+          </div>
+          <div class="completion-stat-box">
+            <div class="stat-number" id="completionAcc">100%</div>
+            <div class="stat-label">ACCURACY</div>
+          </div>
+          <div class="completion-stat-box">
+            <div class="stat-number" id="completionTime">0s</div>
+            <div class="stat-label">TIME</div>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; justify-content:center; margin-top:24px;">
+          <button class="btn-secondary" id="btnCompletionRestart">Practice Again</button>
+          <button class="btn-primary" id="btnCompletionNext">Next Chapter ➔</button>
+        </div>
       </div>
     </div>
   </div>

@@ -175,15 +175,15 @@ const FINGER_MAP = {
 };
 
 const FINGER_INFO = {
-  'left-pinky': { name: 'Left Pinky', icon: '🌸', hand: 'Left Hand' },
-  'left-ring': { name: 'Left Ring', icon: '💍', hand: 'Left Hand' },
-  'left-middle': { name: 'Left Middle', icon: '🖕', hand: 'Left Hand' },
-  'left-index': { name: 'Left Index', icon: '☝️', hand: 'Left Hand' },
-  'thumb': { name: 'Thumb (Space)', icon: '👍', hand: 'Both Hands' },
-  'right-index': { name: 'Right Index', icon: '☝️', hand: 'Right Hand' },
-  'right-middle': { name: 'Right Middle', icon: '🖕', hand: 'Right Hand' },
-  'right-ring': { name: 'Right Ring', icon: '💍', hand: 'Right Hand' },
-  'right-pinky': { name: 'Right Pinky', icon: '🌸', hand: 'Right Hand' },
+  'left-pinky': { name: 'Left Pinky', label: 'L·Pinky', hand: 'Left Hand' },
+  'left-ring': { name: 'Left Ring', label: 'L·Ring', hand: 'Left Hand' },
+  'left-middle': { name: 'Left Middle', label: 'L·Mid', hand: 'Left Hand' },
+  'left-index': { name: 'Left Index', label: 'L·Index', hand: 'Left Hand' },
+  'thumb': { name: 'Thumb (Space)', label: 'Thumb', hand: 'Both Hands' },
+  'right-index': { name: 'Right Index', label: 'R·Index', hand: 'Right Hand' },
+  'right-middle': { name: 'Right Middle', label: 'R·Mid', hand: 'Right Hand' },
+  'right-ring': { name: 'Right Ring', label: 'R·Ring', hand: 'Right Hand' },
+  'right-pinky': { name: 'Right Pinky', label: 'R·Pinky', hand: 'Right Hand' },
 };
 
 const KEYBOARD_LAYOUT = [
@@ -251,13 +251,13 @@ function updateVirtualKeyboardTarget(expectedChar) {
 
   // Clear previous target
   document.querySelectorAll('.key.target-key').forEach(el => el.classList.remove('target-key'));
-  document.querySelectorAll('.finger-dot.active-finger').forEach(el => el.classList.remove('active-finger'));
+  document.querySelectorAll('.finger-pill.active-finger').forEach(el => el.classList.remove('active-finger'));
 
   if (!expectedChar) return;
 
   const charLower = expectedChar.toLowerCase();
   const fingerKey = FINGER_MAP[charLower] || FINGER_MAP[expectedChar] || 'thumb';
-  const info = FINGER_INFO[fingerKey] || { name: 'Index Finger', icon: '☝️', hand: 'Touch Guide' };
+  const info = FINGER_INFO[fingerKey] || { name: 'Index Finger', label: 'Index', hand: 'Touch Guide' };
 
   // Update target preview text & badge
   const previewBadge = document.getElementById('fingerGuideBadge');
@@ -265,15 +265,15 @@ function updateVirtualKeyboardTarget(expectedChar) {
   const leniencyTag = document.getElementById('leniencyIndicator');
 
   const displayKey = expectedChar === ' ' ? 'SPACE' : expectedChar.toUpperCase();
-  if (previewBadge) previewBadge.textContent = `${info.icon} ${info.name}`;
+  if (previewBadge) previewBadge.textContent = info.name;
   if (previewText) previewText.innerHTML = `Target Key: <strong>${escapeHtml(displayKey)}</strong>`;
 
   if (leniencyTag) {
     if (appState.settings.lenientPunctuation && PUNCTUATION_SET.has(expectedChar)) {
-      leniencyTag.textContent = "⚡ Space Skips Punctuation";
+      leniencyTag.textContent = "Space Skips Punctuation";
       leniencyTag.style.display = "inline-block";
     } else if (appState.settings.ignoreCase && expectedChar !== charLower) {
-      leniencyTag.textContent = "⚡ Case-Insensitive";
+      leniencyTag.textContent = "Case-Insensitive";
       leniencyTag.style.display = "inline-block";
     } else {
       leniencyTag.style.display = "none";
@@ -282,7 +282,7 @@ function updateVirtualKeyboardTarget(expectedChar) {
 
   // Highlight finger in hands diagram
   if (appState.settings.showFingerGuide) {
-    document.querySelectorAll(`.finger-dot[data-finger="${fingerKey}"]`).forEach(el => {
+    document.querySelectorAll(`.finger-pill[data-finger="${fingerKey}"]`).forEach(el => {
       el.classList.add('active-finger');
     });
   }
@@ -433,8 +433,11 @@ function applySettings() {
     }
   }
 
-  if (btnToggleKb) {
-    btnToggleKb.textContent = s.showVirtualKeyboard ? '⌨️ Keyboard: ON' : '⌨️ Keyboard: OFF';
+  const btnToggleKbText = document.getElementById('btnToggleKeyboardText');
+  if (btnToggleKbText) {
+    btnToggleKbText.textContent = s.showVirtualKeyboard ? 'Keyboard: ON' : 'Keyboard: OFF';
+  } else if (btnToggleKb) {
+    btnToggleKb.textContent = s.showVirtualKeyboard ? 'Keyboard: ON' : 'Keyboard: OFF';
   }
 }
 
@@ -847,7 +850,24 @@ function finishSession() {
   appState.analytics.totalErrors += appState.session.errorsCount;
   persistState();
 
-  alert(`🎉 Chapter Completed!\nAccuracy: ${document.getElementById('metricAcc').textContent}\nSpeed: ${document.getElementById('metricWpm').textContent} WPM`);
+  const current = getCurrentChapter();
+  const accText = document.getElementById('metricAcc').textContent;
+  const wpmText = document.getElementById('metricWpm').textContent;
+
+  const completionModal = document.getElementById('completionModal');
+  if (completionModal) {
+    const titleEl = document.getElementById('completionTitle');
+    const subtitleEl = document.getElementById('completionSubtitle');
+    if (titleEl) titleEl.textContent = current ? `${current.chapter.title}` : 'Chapter Completed';
+    if (subtitleEl) subtitleEl.textContent = current ? `From "${current.doc.title}"` : 'Great session!';
+    
+    document.getElementById('completionWpm').textContent = wpmText;
+    document.getElementById('completionAcc').textContent = accText;
+    document.getElementById('completionTime').textContent = `${elapsedSecs}s`;
+    completionModal.classList.add('active');
+  } else {
+    alert(`Chapter Completed!\nAccuracy: ${accText}\nSpeed: ${wpmText} WPM`);
+  }
 }
 
 // Render Stats
@@ -1427,15 +1447,21 @@ window.addEventListener('DOMContentLoaded', () => {
     hiddenInput.focus();
   });
 
+  const updatePauseButtonLabel = (text) => {
+    const textEl = document.getElementById('btnPauseSessionText');
+    if (textEl) textEl.textContent = text;
+    else document.getElementById('btnPauseSession').textContent = text;
+  };
+
   window.addEventListener('keydown', (e) => {
     // Esc to Pause / Resume
     if (e.key === 'Escape') {
       if (appState.session.status === 'active') {
         appState.session.status = 'paused';
-        document.getElementById('btnPauseSession').textContent = 'Resume (Esc)';
+        updatePauseButtonLabel('Resume (Esc)');
       } else if (appState.session.status === 'paused') {
         appState.session.status = 'active';
-        document.getElementById('btnPauseSession').textContent = 'Pause (Esc)';
+        updatePauseButtonLabel('Pause (Esc)');
       }
       return;
     }
@@ -1455,10 +1481,10 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnPauseSession').addEventListener('click', () => {
     if (appState.session.status === 'active') {
       appState.session.status = 'paused';
-      document.getElementById('btnPauseSession').textContent = 'Resume (Esc)';
+      updatePauseButtonLabel('Resume (Esc)');
     } else {
       appState.session.status = 'active';
-      document.getElementById('btnPauseSession').textContent = 'Pause (Esc)';
+      updatePauseButtonLabel('Pause (Esc)');
       document.getElementById('typingCanvasBox').focus();
     }
   });
@@ -1608,4 +1634,33 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Completion modal action buttons
+  const btnCompRestart = document.getElementById('btnCompletionRestart');
+  if (btnCompRestart) {
+    btnCompRestart.addEventListener('click', () => {
+      document.getElementById('completionModal').classList.remove('active');
+      resetPracticeSession();
+      renderPracticeView();
+      document.getElementById('typingCanvasBox').focus();
+    });
+  }
+
+  const btnCompNext = document.getElementById('btnCompletionNext');
+  if (btnCompNext) {
+    btnCompNext.addEventListener('click', () => {
+      document.getElementById('completionModal').classList.remove('active');
+      const current = getCurrentChapter();
+      if (current && current.doc && current.doc.chapters) {
+        const currIdx = current.doc.chapters.findIndex(c => c.id === current.chapter.id);
+        if (currIdx >= 0 && currIdx + 1 < current.doc.chapters.length) {
+          appState.currentChapterId = current.doc.chapters[currIdx + 1].id;
+        }
+      }
+      resetPracticeSession();
+      renderPracticeView();
+      document.getElementById('typingCanvasBox').focus();
+    });
+  }
+
 });
+
