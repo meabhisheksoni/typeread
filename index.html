@@ -178,6 +178,43 @@
         <!-- Right Workspace: Synchronized Views -->
         <div class="practice-workspace">
           
+          <!-- Toon Companion Live Emotion Station -->
+          <div class="companion-stage" id="companionStage">
+            <div class="companion-avatar-wrap" id="companionAvatarWrap" title="Click to poke your companion!">
+              <div class="companion-avatar-box" id="companionAvatarBox">
+                <!-- Expressive SVG Avatar rendered here -->
+              </div>
+              <div class="companion-streak-badge" id="companionStreakBadge" title="Current typing streak">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c.8 3.5 3 6 5 8.5 2 2.5 3 5 3 7.5 0 4.4-3.6 8-8 8s-8-3.6-8-8c0-3.5 2.5-6.5 4.5-9 1-1.3 2-2.7 2.5-4.5.3-.9.7-1.7 1-2.5z"/></svg>
+                <span id="companionStreakCount">0 streak</span>
+              </div>
+            </div>
+
+            <div class="companion-bubble-wrap">
+              <div class="companion-bubble" id="companionBubble">
+                <span class="bubble-tail"></span>
+                <span class="bubble-text" id="companionBubbleText">Let's read and type together! ✨</span>
+              </div>
+              <div class="companion-meta-row">
+                <span class="companion-mood-pill" id="companionMoodPill">
+                  <span class="mood-dot"></span>
+                  <span id="companionMoodLabel">Focused</span>
+                </span>
+                <span class="companion-milestone-tag" id="companionMilestoneTag">Ready</span>
+              </div>
+            </div>
+
+            <div class="companion-controls">
+              <button class="btn-companion-pill" id="btnSwitchAvatar" title="Change Avatar Persona (Byte / Pip / Mochi)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                <span id="avatarPersonaName">Byte</span>
+              </button>
+              <button class="btn-companion-icon" id="btnToggleCompanionMute" title="Toggle companion speech encouragements">
+                <svg id="iconCompanionVoice" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              </button>
+            </div>
+          </div>
+
           <!-- Upper Reading View -->
           <div class="source-reader-box">
             <div class="box-label">SOURCE TEXT / READING VIEW</div>
@@ -426,6 +463,35 @@
           </label>
         </div>
 
+        <!-- Section: Toon Avatar Companion -->
+        <div class="settings-section-title">TOON AVATAR COMPANION</div>
+        <div class="toggles-list">
+          <label class="toggle-control-label">
+            <input type="checkbox" id="settingShowAvatar" checked>
+            <span class="toggle-text">
+              <strong>Show Expressive Toon Avatar</strong>
+              <small>Display the animated cartoon companion that mimics typing emotions</small>
+            </span>
+          </label>
+
+          <label class="toggle-control-label">
+            <input type="checkbox" id="settingAvatarSpeech" checked>
+            <span class="toggle-text">
+              <strong>Companion Cheer & Reaction Bubbles</strong>
+              <small>Show live encouragement quotes and typing streak alerts</small>
+            </span>
+          </label>
+        </div>
+
+        <div class="form-group" style="margin-top:14px;">
+          <label class="form-label">Default Companion Persona</label>
+          <select class="form-control" id="settingAvatarPersona">
+            <option value="byte">Byte the Bookworm (Cute Nerd)</option>
+            <option value="pip">Pip the Pixel Bot (Cyber Bot)</option>
+            <option value="mochi">Mochi the Cat (Playful Feline)</option>
+          </select>
+        </div>
+
         <!-- Section: Typing Leniency Rules -->
         <div class="settings-section-title">TYPING LENIENCY & RULES</div>
         <div class="toggles-list">
@@ -525,6 +591,7 @@
         <div class="celebration-badge">CHAPTER COMPLETED</div>
       </div>
       <div class="modal-body" style="padding: 20px 24px 28px;">
+        <div id="completionAvatarBox" class="completion-avatar-box"></div>
         <h2 id="completionTitle" style="font-size:1.4rem; font-weight:700; margin-bottom:8px;">Superb Focus!</h2>
         <p id="completionSubtitle" style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:24px;">You have successfully completed this chapter.</p>
         

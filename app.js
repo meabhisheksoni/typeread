@@ -79,6 +79,17 @@ let appState = {
     ignoreCase: true,
     lenientPunctuation: true
   },
+  companion: {
+    enabled: true,
+    speechEnabled: true,
+    persona: 'byte', // 'byte', 'pip', 'mochi'
+    emotion: 'neutral', // 'neutral', 'typing', 'streak', 'error', 'idle', 'victory'
+    streak: 0,
+    maxStreak: 0,
+    lastKeystrokeTime: 0,
+    idleTimer: null,
+    errorTimer: null
+  },
   analytics: {
     totalPracticeSeconds: 0,
     totalCharactersTyped: 0,
@@ -130,8 +141,594 @@ function playKeySound(isError = false) {
 }
 
 // ============================================================
-// Virtual Keyboard & Touch-Typing Finger Model
+// Toon Companion Procedural SVG & Reactive Emotion Engine
 // ============================================================
+
+function playCompanionChirp(type = 'poke') {
+  if (!appState.settings.soundEnabled) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    if (type === 'poke') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(520, now);
+      osc.frequency.exponentialRampToValueAtTime(1040, now + 0.12);
+      gain.gain.setValueAtTime(0.04, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+      osc.start(now);
+      osc.stop(now + 0.14);
+    } else if (type === 'streak') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, now);
+      osc.frequency.setValueAtTime(659.25, now + 0.07);
+      osc.frequency.setValueAtTime(783.99, now + 0.14);
+      gain.gain.setValueAtTime(0.035, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+      osc.start(now);
+      osc.stop(now + 0.25);
+    } else if (type === 'victory') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.setValueAtTime(554.37, now + 0.1);
+      osc.frequency.setValueAtTime(659.25, now + 0.2);
+      osc.frequency.setValueAtTime(880, now + 0.3);
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+      osc.start(now);
+      osc.stop(now + 0.5);
+    }
+  } catch (e) {
+    // Ignore audio errors
+  }
+}
+
+const COMPANION_PHRASES = {
+  byte: {
+    name: 'Byte',
+    neutral: [
+      "Let's read and type together! ✨",
+      "Ready to dive into the story? 📖",
+      "Find your natural reading cadence.",
+      "Every character builds your muscle memory."
+    ],
+    typing: [
+      "Smooth typing rhythm! ⚡",
+      "Focused and steady! 🎯",
+      "Great cadence, keep moving!",
+      "Word by word, you've got this!"
+    ],
+    streak: [
+      "Blazing streak! 🔥",
+      "Unstoppable reading momentum! 🌟",
+      "In the zone! Keep soaring! 🚀",
+      "Phenomenal rhythm! ⚡"
+    ],
+    error: [
+      "All good, breathe and reset! 💡",
+      "No rush, precision builds speed.",
+      "Just a tiny bump, keep going!",
+      "Focus on the next letter."
+    ],
+    idle: [
+      "Taking a breather? ☕",
+      "Rest those fingers a moment~",
+      "Whenever you're ready to type! ✨"
+    ],
+    victory: [
+      "Chapter conquered! Incredible work! 🏆",
+      "Flawless finish! That was brilliant! 🎉",
+      "You crushed that chapter! 🥳"
+    ],
+    poke: [
+      "Boop! Byte at your service! 🤓",
+      "I believe in your typing flow! 🌟",
+      "Keep that great focus going!"
+    ]
+  },
+  pip: {
+    name: 'Pip',
+    neutral: [
+      "Systems nominal. Ready to type! 🤖",
+      "Loading chapter buffers... Let's go! 💾",
+      "Neural link established. Start typing! ⚡"
+    ],
+    typing: [
+      "Processing keystrokes at speed! ⚡",
+      "Data stream aligned! 🎯",
+      "Optimized rhythm detected! 🔋",
+      "Buffer clearing smoothly!"
+    ],
+    streak: [
+      "OVERCLOCK ENGAGED! 🔥",
+      "Maximum overdrive streak! 🚀",
+      "Precision algorithm at 100%! 🌟",
+      "Hyper-speed typing unlocked! ⚡"
+    ],
+    error: [
+      "Glitch corrected! Recalibrating... 🔧",
+      "Minor packet loss, resuming stream!",
+      "Keep steady, pipeline recovering!"
+    ],
+    idle: [
+      "Entering standby mode... 💤",
+      "Awaiting next input interrupt... ⏳",
+      "Low power cycle. Ready when you are!"
+    ],
+    victory: [
+      "Chapter successfully compiled! 🏆",
+      "Mission accomplished! 100% complete! 🚀",
+      "Peak throughput achieved! 🎉"
+    ],
+    poke: [
+      "*BEEP BOOP* Pip online! ⚡",
+      "Diagnostic: Your skills are improving! 📈",
+      "High five, typing operator! 🤖"
+    ]
+  },
+  mochi: {
+    name: 'Mochi',
+    neutral: [
+      "Meow! Let's read this book together! 🐾",
+      "Purring and ready for typing! ✨",
+      "Warm paws, ready fingers! 🐱"
+    ],
+    typing: [
+      "Paws moving so fast! 🐾⚡",
+      "Pounce on those letters! 🎯",
+      "Such a smooth rhythm, purr~ 🎵",
+      "You're doing amazing!"
+    ],
+    streak: [
+      "SUPER STREAK! ZOOMIES ACTIVATED! 🔥",
+      "Paws on fire! Look at you go! 🌟",
+      "Purr-fect accuracy streak! 🐱💖",
+      "Nothing can stop these paws! 🚀"
+    ],
+    error: [
+      "Oopsie daisy! Shake it off! 🐾",
+      "Land on your feet, try again! 💖",
+      "Take your time, little friend!"
+    ],
+    idle: [
+      "Curled up for a quick cat nap~ 💤",
+      "Cozy break time... purr... ☕",
+      "Ready whenever your paws are! ✨"
+    ],
+    victory: [
+      "YAY! We finished the chapter! 🥳🎉",
+      "Trophy unlocked! Extra treats for everyone! 🏆",
+      "You're the master reader-typer! 🐾💖"
+    ],
+    poke: [
+      "Purr~ *headbutts your finger* 🐱",
+      "Meow! Cheering for you always! 💖",
+      "Let's get that high score! 🐾"
+    ]
+  }
+};
+
+function generateAvatarSvg(persona = 'byte', emotion = 'neutral', streak = 0) {
+  const isPip = persona === 'pip';
+  const isMochi = persona === 'mochi';
+
+  let defs = '';
+  let content = '';
+
+  if (isPip) {
+    defs = `
+      <defs>
+        <linearGradient id="pipHeadGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#06b6d4"/>
+          <stop offset="100%" stop-color="#0891b2"/>
+        </linearGradient>
+        <linearGradient id="pipScreenGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#090d16"/>
+          <stop offset="100%" stop-color="#161f30"/>
+        </linearGradient>
+        <filter id="pipGlow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="3" result="blur"/>
+          <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+        </filter>
+      </defs>
+    `;
+
+    const antennaGlow = (emotion === 'streak' || emotion === 'victory') ? '#f59e0b' : (emotion === 'error' ? '#ef4444' : '#22d3ee');
+    const antennaPulse = (emotion === 'streak') ? 'class="toon-aura"' : '';
+
+    let screenContent = '';
+    if (emotion === 'typing') {
+      screenContent = `
+        <path d="M 43 51 L 51 56 L 43 61" stroke="#38bdf8" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M 77 51 L 69 56 L 77 61" stroke="#38bdf8" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="55" y1="70" x2="57" y2="70" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="59" y1="68" x2="61" y2="68" stroke="#38bdf8" stroke-width="3.5" stroke-linecap="round"/>
+        <line x1="63" y1="70" x2="65" y2="70" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round"/>
+      `;
+    } else if (emotion === 'streak') {
+      screenContent = `
+        <polygon points="47,48 49,53 54,53 50,57 52,62 47,59 42,62 44,57 40,53 45,53" fill="#fbbf24" filter="url(#pipGlow)"/>
+        <polygon points="73,48 75,53 80,53 76,57 78,62 73,59 68,62 70,57 66,53 71,53" fill="#fbbf24" filter="url(#pipGlow)"/>
+        <rect x="50" y="68" width="20" height="5" rx="2.5" fill="#fbbf24"/>
+      `;
+    } else if (emotion === 'error') {
+      screenContent = `
+        <path d="M 42 50 L 52 60 M 52 50 L 42 60" stroke="#f43f5e" stroke-width="3" stroke-linecap="round"/>
+        <path d="M 68 50 L 78 60 M 78 50 L 68 60" stroke="#f43f5e" stroke-width="3" stroke-linecap="round"/>
+        <path d="M 50 70 L 54 67 L 58 72 L 62 67 L 66 72 L 70 70" stroke="#f43f5e" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      `;
+    } else if (emotion === 'idle') {
+      screenContent = `
+        <line x1="42" y1="56" x2="52" y2="56" stroke="#0ea5e9" stroke-width="3" stroke-linecap="round"/>
+        <line x1="68" y1="56" x2="78" y2="56" stroke="#0ea5e9" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="60" cy="70" r="2.5" fill="#0ea5e9" opacity="0.6"/>
+      `;
+    } else if (emotion === 'victory') {
+      screenContent = `
+        <path d="M 41 57 L 47 50 L 53 57" stroke="#22d3ee" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M 67 57 L 73 50 L 79 57" stroke="#22d3ee" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M 52 67 Q 60 76 68 67" stroke="#fbbf24" stroke-width="3" fill="none" stroke-linecap="round"/>
+      `;
+    } else {
+      screenContent = `
+        <g class="toon-blink-eye">
+          <rect x="43" y="49" width="9" height="14" rx="4.5" fill="#22d3ee"/>
+          <rect x="68" y="49" width="9" height="14" rx="4.5" fill="#22d3ee"/>
+        </g>
+        <path d="M 55 70 Q 60 74 65 70" stroke="#22d3ee" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      `;
+    }
+
+    content = `
+      <g class="avatar-body-group">
+        <line x1="60" y1="28" x2="60" y2="13" stroke="#475569" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="60" cy="11" r="6" fill="${antennaGlow}" ${antennaPulse}/>
+        <rect x="17" y="52" width="9" height="18" rx="4.5" fill="#334155"/>
+        <rect x="94" y="52" width="9" height="18" rx="4.5" fill="#334155"/>
+        <rect x="24" y="27" width="72" height="68" rx="20" fill="url(#pipHeadGrad)" stroke="#0e7490" stroke-width="2"/>
+        <rect x="33" y="38" width="54" height="44" rx="12" fill="url(#pipScreenGrad)" stroke="#1e293b" stroke-width="2"/>
+        ${screenContent}
+        <path d="M 46 95 L 74 95 L 68 103 L 52 103 Z" fill="#334155"/>
+      </g>
+    `;
+  } else if (isMochi) {
+    defs = `
+      <defs>
+        <linearGradient id="mochiHeadGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#ffedd5"/>
+          <stop offset="100%" stop-color="#fed7aa"/>
+        </linearGradient>
+      </defs>
+    `;
+
+    let faceDetails = '';
+    if (emotion === 'typing') {
+      faceDetails = `
+        <circle cx="46" cy="59" r="6" fill="#1c1917"/><circle cx="48" cy="56" r="2.2" fill="#ffffff"/><circle cx="44" cy="62" r="1" fill="#ffffff"/>
+        <circle cx="74" cy="59" r="6" fill="#1c1917"/><circle cx="76" cy="56" r="2.2" fill="#ffffff"/><circle cx="72" cy="62" r="1" fill="#ffffff"/>
+        <path d="M 54 72 Q 60 76 66 72" stroke="#7c2d12" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+        <ellipse cx="38" cy="94" rx="9" ry="6" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+        <ellipse cx="82" cy="94" rx="9" ry="6" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+      `;
+    } else if (emotion === 'streak') {
+      faceDetails = `
+        <polygon points="46,50 48,55 53,56 49,60 50,65 46,62 42,65 43,60 39,56 44,55" fill="#f59e0b"/>
+        <polygon points="74,50 76,55 81,56 77,60 78,65 74,62 70,65 71,60 67,56 72,55" fill="#f59e0b"/>
+        <path d="M 53 72 Q 60 84 67 72 Z" fill="#e11d48"/>
+      `;
+    } else if (emotion === 'error') {
+      faceDetails = `
+        <circle cx="45" cy="57" r="7.5" fill="#ffffff" stroke="#7c2d12" stroke-width="2"/>
+        <circle cx="45" cy="57" r="2.5" fill="#1c1917"/>
+        <circle cx="75" cy="57" r="7.5" fill="#ffffff" stroke="#7c2d12" stroke-width="2"/>
+        <circle cx="75" cy="57" r="2.5" fill="#1c1917"/>
+        <path d="M 52 74 Q 56 71 60 74 Q 64 77 68 74" stroke="#7c2d12" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+        <path d="M 90 48 C 90 44 94 40 96 40 C 98 40 102 44 102 48 C 102 52 96 54 90 48 Z" fill="#38bdf8"/>
+      `;
+    } else if (emotion === 'idle') {
+      faceDetails = `
+        <path d="M 40 60 Q 46 55 52 60" stroke="#7c2d12" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <path d="M 68 60 Q 74 55 80 60" stroke="#7c2d12" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <path d="M 55 72 Q 60 75 65 72" stroke="#7c2d12" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <text x="89" y="38" font-size="12" fill="#fb923c" font-weight="bold" font-family="sans-serif">z</text>
+      `;
+    } else if (emotion === 'victory') {
+      faceDetails = `
+        <path d="M 39 58 Q 46 49 53 58" stroke="#7c2d12" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <path d="M 67 58 Q 74 49 81 58" stroke="#7c2d12" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <path d="M 52 70 Q 56 75 60 70 Q 64 75 68 70 Z" fill="#e11d48"/>
+        <circle cx="28" cy="26" r="4.5" fill="#f59e0b"/>
+        <circle cx="92" cy="26" r="4.5" fill="#ec4899"/>
+      `;
+    } else {
+      faceDetails = `
+        <g class="toon-blink-eye">
+          <circle cx="46" cy="58" r="6" fill="#1c1917"/><circle cx="48" cy="55" r="2.2" fill="#ffffff"/>
+          <circle cx="74" cy="58" r="6" fill="#1c1917"/><circle cx="76" cy="55" r="2.2" fill="#ffffff"/>
+        </g>
+        <path d="M 54 73 Q 57 77 60 73 Q 63 77 66 73" stroke="#7c2d12" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      `;
+    }
+
+    content = `
+      <g class="avatar-body-group">
+        <polygon points="26,46 34,18 51,36" fill="#fb923c"/>
+        <polygon points="31,43 36,25 47,37" fill="#fda4af"/>
+        <polygon points="69,36 86,18 94,46" fill="#fb923c"/>
+        <polygon points="73,37 84,25 89,43" fill="#fda4af"/>
+        <ellipse cx="60" cy="65" rx="38" ry="32" fill="url(#mochiHeadGrad)" stroke="#f97316" stroke-width="1.5"/>
+        <line x1="21" y1="64" x2="35" y2="66" stroke="#7c2d12" stroke-width="2" stroke-linecap="round"/>
+        <line x1="19" y1="72" x2="35" y2="71" stroke="#7c2d12" stroke-width="2" stroke-linecap="round"/>
+        <line x1="85" y1="66" x2="99" y2="64" stroke="#7c2d12" stroke-width="2" stroke-linecap="round"/>
+        <line x1="85" y1="71" x2="101" y2="72" stroke="#7c2d12" stroke-width="2" stroke-linecap="round"/>
+        <polygon points="57,66 63,66 60,69" fill="#f43f5e"/>
+        <circle cx="36" cy="71" r="5" fill="#fb7185" opacity="0.4"/>
+        <circle cx="84" cy="71" r="5" fill="#fb7185" opacity="0.4"/>
+        ${faceDetails}
+      </g>
+    `;
+  } else {
+    // byte (default)
+    defs = `
+      <defs>
+        <linearGradient id="byteHeadGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#818cf8"/>
+          <stop offset="100%" stop-color="#4f46e5"/>
+        </linearGradient>
+      </defs>
+    `;
+
+    let faceDetails = '';
+    if (emotion === 'typing') {
+      faceDetails = `
+        <path d="M 39 45 L 53 43" stroke="#312e81" stroke-width="3" stroke-linecap="round"/>
+        <path d="M 67 43 L 81 45" stroke="#312e81" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="48" cy="59" r="5.5" fill="#0f172a"/><circle cx="50" cy="57" r="2" fill="#ffffff"/>
+        <circle cx="72" cy="59" r="5.5" fill="#0f172a"/><circle cx="74" cy="57" r="2" fill="#ffffff"/>
+        <path d="M 55 76 Q 60 73 65 76" stroke="#1e1b4b" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      `;
+    } else if (emotion === 'streak') {
+      faceDetails = `
+        <path d="M 38 41 Q 46 36 54 41" stroke="#312e81" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <path d="M 66 41 Q 74 36 82 41" stroke="#312e81" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <polygon points="46,50 48,55 53,56 49,60 50,65 46,62 42,65 43,60 39,56 44,55" fill="#fde047" stroke="#ca8a04" stroke-width="0.8"/>
+        <polygon points="74,50 76,55 81,56 77,60 78,65 74,62 70,65 71,60 67,56 72,55" fill="#fde047" stroke="#ca8a04" stroke-width="0.8"/>
+        <path d="M 52 74 Q 60 86 68 74 Z" fill="#e11d48"/>
+        <rect x="57" y="74" width="6" height="3" rx="1" fill="#ffffff"/>
+      `;
+    } else if (emotion === 'error') {
+      faceDetails = `
+        <path d="M 38 42 L 52 46" stroke="#312e81" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M 68 46 L 82 42" stroke="#312e81" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="46" cy="58" r="7.5" fill="#ffffff" stroke="#1e1b4b" stroke-width="1.8"/>
+        <circle cx="46" cy="58" r="2.5" fill="#0f172a"/>
+        <circle cx="74" cy="58" r="7.5" fill="#ffffff" stroke="#1e1b4b" stroke-width="1.8"/>
+        <circle cx="74" cy="58" r="2.5" fill="#0f172a"/>
+        <path d="M 52 77 Q 56 73 60 77 Q 64 81 68 77" stroke="#1e1b4b" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <path d="M 88 42 C 88 38 92 34 94 34 C 96 34 100 38 100 42 C 100 46 94 48 88 42 Z" fill="#38bdf8"/>
+      `;
+    } else if (emotion === 'idle') {
+      faceDetails = `
+        <path d="M 40 60 Q 46 54 52 60" stroke="#1e1b4b" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <path d="M 68 60 Q 74 54 80 60" stroke="#1e1b4b" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <path d="M 55 75 Q 60 78 65 75" stroke="#1e1b4b" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <text x="88" y="38" font-size="11" font-weight="bold" fill="#a5b4fc" opacity="0.8">z</text>
+        <text x="96" y="28" font-size="14" font-weight="bold" fill="#818cf8" opacity="0.9">Z</text>
+      `;
+    } else if (emotion === 'victory') {
+      faceDetails = `
+        <path d="M 39 58 Q 46 50 53 58" stroke="#1e1b4b" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+        <path d="M 67 58 Q 74 50 81 58" stroke="#1e1b4b" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+        <path d="M 51 73 Q 60 87 69 73 Z" fill="#e11d48"/>
+        <polygon points="48,22 60,7 72,22" fill="#f59e0b" stroke="#d97706" stroke-width="1.5"/>
+        <circle cx="60" cy="6" r="3.5" fill="#ef4444"/>
+      `;
+    } else {
+      faceDetails = `
+        <path d="M 38 43 Q 46 40 54 44" stroke="#312e81" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <path d="M 66 44 Q 74 40 82 43" stroke="#312e81" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <g class="toon-blink-eye">
+          <circle cx="47" cy="58" r="5" fill="#0f172a"/><circle cx="49" cy="56" r="1.8" fill="#ffffff"/>
+          <circle cx="73" cy="58" r="5" fill="#0f172a"/><circle cx="75" cy="56" r="1.8" fill="#ffffff"/>
+        </g>
+        <path d="M 54 75 Q 60 80 66 75" stroke="#1e1b4b" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      `;
+    }
+
+    content = `
+      <g class="avatar-body-group">
+        <path d="M 60 25 C 60 14 70 10 72 15 C 74 21 66 19 64 25" fill="none" stroke="#a5b4fc" stroke-width="3.5" stroke-linecap="round"/>
+        <circle cx="72" cy="15" r="5" fill="#fde047" class="toon-aura"/>
+        <circle cx="60" cy="62" r="38" fill="url(#byteHeadGrad)" stroke="#4338ca" stroke-width="1.5"/>
+        <circle cx="34" cy="69" r="6" fill="#f43f5e" opacity="0.35"/>
+        <circle cx="86" cy="69" r="6" fill="#f43f5e" opacity="0.35"/>
+        <circle cx="46" cy="58" r="15" fill="rgba(255,255,255,0.2)" stroke="#1e1b4b" stroke-width="3"/>
+        <circle cx="74" cy="58" r="15" fill="rgba(255,255,255,0.2)" stroke="#1e1b4b" stroke-width="3"/>
+        <line x1="61" y1="58" x2="59" y2="58" stroke="#1e1b4b" stroke-width="3.5"/>
+        <path d="M 31 56 L 22 52" stroke="#1e1b4b" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M 89 56 L 98 52" stroke="#1e1b4b" stroke-width="2.5" stroke-linecap="round"/>
+        ${faceDetails}
+      </g>
+    `;
+  }
+
+  return `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">${defs}${content}</svg>`;
+}
+
+function setCompanionEmotion(emotion, customPhrase = null) {
+  const comp = appState.companion;
+  if (!comp.enabled) return;
+
+  comp.emotion = emotion;
+  const persona = comp.persona || 'byte';
+  const phrases = COMPANION_PHRASES[persona] || COMPANION_PHRASES.byte;
+
+  let phrase = customPhrase;
+  if (!phrase) {
+    const list = phrases[emotion] || phrases.neutral;
+    phrase = list[Math.floor(Math.random() * list.length)];
+  }
+
+  const avatarBox = document.getElementById('companionAvatarBox');
+  if (avatarBox) {
+    avatarBox.innerHTML = generateAvatarSvg(persona, emotion, comp.streak);
+
+    avatarBox.classList.remove('avatar-tap', 'avatar-shock', 'avatar-victory', 'avatar-poke');
+    void avatarBox.offsetWidth;
+    if (emotion === 'typing') {
+      avatarBox.classList.add('avatar-tap');
+    } else if (emotion === 'error') {
+      avatarBox.classList.add('avatar-shock');
+    } else if (emotion === 'victory') {
+      avatarBox.classList.add('avatar-victory');
+    }
+  }
+
+  const moodLabel = document.getElementById('companionMoodLabel');
+  if (moodLabel) {
+    const emotionLabels = {
+      neutral: 'Focused',
+      typing: 'Flowing',
+      streak: 'On Fire 🔥',
+      error: 'Refocusing',
+      idle: 'Resting ☕',
+      victory: 'Victorious 🏆',
+      poke: 'Playful ✨'
+    };
+    moodLabel.textContent = emotionLabels[emotion] || 'Focused';
+  }
+
+  const bubbleText = document.getElementById('companionBubbleText');
+  if (bubbleText && phrase) {
+    bubbleText.textContent = phrase;
+  }
+
+  const streakCount = document.getElementById('companionStreakCount');
+  const streakBadge = document.getElementById('companionStreakBadge');
+  if (streakCount) {
+    streakCount.textContent = `${comp.streak} streak`;
+  }
+  if (streakBadge) {
+    if (comp.streak >= 10) {
+      streakBadge.classList.add('streak-on-fire');
+    } else {
+      streakBadge.classList.remove('streak-on-fire');
+    }
+  }
+
+  const milestoneTag = document.getElementById('companionMilestoneTag');
+  if (milestoneTag) {
+    if (comp.streak >= 25) milestoneTag.textContent = 'Blazing!';
+    else if (comp.streak >= 10) milestoneTag.textContent = 'Streak x' + comp.streak;
+    else if (comp.emotion === 'victory') milestoneTag.textContent = 'Mastery!';
+    else milestoneTag.textContent = 'Ready';
+  }
+}
+
+function pokeCompanion() {
+  const comp = appState.companion;
+  const persona = comp.persona || 'byte';
+  const phrases = COMPANION_PHRASES[persona] || COMPANION_PHRASES.byte;
+  const pokeList = phrases.poke || ["Boop! ✨"];
+  const phrase = pokeList[Math.floor(Math.random() * pokeList.length)];
+
+  playCompanionChirp('poke');
+
+  const avatarBox = document.getElementById('companionAvatarBox');
+  if (avatarBox) {
+    avatarBox.innerHTML = generateAvatarSvg(persona, 'typing', comp.streak);
+    avatarBox.classList.remove('avatar-tap', 'avatar-shock', 'avatar-victory', 'avatar-poke');
+    void avatarBox.offsetWidth;
+    avatarBox.classList.add('avatar-poke');
+  }
+
+  const bubbleText = document.getElementById('companionBubbleText');
+  if (bubbleText) bubbleText.textContent = phrase;
+
+  const moodLabel = document.getElementById('companionMoodLabel');
+  if (moodLabel) moodLabel.textContent = 'Playful ✨';
+
+  clearTimeout(comp.errorTimer);
+  comp.errorTimer = setTimeout(() => {
+    setCompanionEmotion(comp.streak >= 15 ? 'streak' : 'neutral');
+  }, 1600);
+}
+
+function switchCompanionPersona(targetPersona = null) {
+  const personas = ['byte', 'pip', 'mochi'];
+  let currentIdx = personas.indexOf(appState.companion.persona);
+  if (currentIdx === -1) currentIdx = 0;
+
+  if (targetPersona && personas.includes(targetPersona)) {
+    appState.companion.persona = targetPersona;
+  } else {
+    appState.companion.persona = personas[(currentIdx + 1) % personas.length];
+  }
+
+  persistState();
+  updateCompanionDisplay();
+  playCompanionChirp('poke');
+}
+
+function toggleCompanionSpeech() {
+  appState.companion.speechEnabled = !appState.companion.speechEnabled;
+  persistState();
+  updateCompanionDisplay();
+}
+
+function updateCompanionDisplay() {
+  const comp = appState.companion;
+  const stage = document.getElementById('companionStage');
+  if (stage) {
+    if (comp.enabled) {
+      stage.classList.remove('companion-hidden');
+    } else {
+      stage.classList.add('companion-hidden');
+    }
+  }
+
+  const bubble = document.getElementById('companionBubble');
+  const btnMute = document.getElementById('btnToggleCompanionMute');
+  if (bubble) {
+    if (comp.speechEnabled) {
+      bubble.classList.remove('bubble-hidden');
+    } else {
+      bubble.classList.add('bubble-hidden');
+    }
+  }
+  if (btnMute) {
+    if (comp.speechEnabled) {
+      btnMute.classList.remove('muted');
+      btnMute.title = "Mute companion speech encouragements";
+    } else {
+      btnMute.classList.add('muted');
+      btnMute.title = "Unmute companion speech encouragements";
+    }
+  }
+
+  const personaNameEl = document.getElementById('avatarPersonaName');
+  if (personaNameEl) {
+    const names = { byte: 'Byte', pip: 'Pip', mochi: 'Mochi' };
+    personaNameEl.textContent = names[comp.persona] || 'Byte';
+  }
+
+  const personaSelect = document.getElementById('settingAvatarPersona');
+  if (personaSelect) personaSelect.value = comp.persona;
+
+  const showAvatarCheck = document.getElementById('settingShowAvatar');
+  if (showAvatarCheck) showAvatarCheck.checked = comp.enabled;
+
+  const speechCheck = document.getElementById('settingAvatarSpeech');
+  if (speechCheck) speechCheck.checked = comp.speechEnabled;
+
+  setCompanionEmotion(comp.emotion || 'neutral');
+}
+
 const FINGER_MAP = {
   // Left Pinky
   '`': 'left-pinky', '~': 'left-pinky', '1': 'left-pinky', '!': 'left-pinky',
@@ -359,6 +956,19 @@ function loadPersistedState() {
     if (savedAnalytics) {
       appState.analytics = { ...appState.analytics, ...JSON.parse(savedAnalytics) };
     }
+
+    const savedCompanion = localStorage.getItem('typeread_companion');
+    if (savedCompanion) {
+      try {
+        const parsed = JSON.parse(savedCompanion);
+        appState.companion = {
+          ...appState.companion,
+          enabled: parsed.enabled !== undefined ? parsed.enabled : true,
+          speechEnabled: parsed.speechEnabled !== undefined ? parsed.speechEnabled : true,
+          persona: parsed.persona || 'byte'
+        };
+      } catch (err) {}
+    }
   } catch (e) {
     console.error("Failed to load local storage:", e);
     appState.documents = DEFAULT_DOCUMENTS;
@@ -376,6 +986,11 @@ function persistState() {
     localStorage.setItem('typeread_docs', JSON.stringify(appState.documents));
     localStorage.setItem('typeread_settings', JSON.stringify(appState.settings));
     localStorage.setItem('typeread_analytics', JSON.stringify(appState.analytics));
+    localStorage.setItem('typeread_companion', JSON.stringify({
+      enabled: appState.companion.enabled,
+      speechEnabled: appState.companion.speechEnabled,
+      persona: appState.companion.persona
+    }));
   } catch (e) {
     console.error("Failed to persist state:", e);
   }
@@ -461,6 +1076,9 @@ function applySettings() {
   } else if (btnToggleKb) {
     btnToggleKb.textContent = s.showVirtualKeyboard ? 'Keyboard: ON' : 'Keyboard: OFF';
   }
+
+  // Update Companion UI
+  updateCompanionDisplay();
 }
 
 // Get current active passage text
@@ -594,6 +1212,10 @@ function resetPracticeSession() {
     errorsCount: 0,
     errorHandlingMode: appState.settings.errorHandling,
   };
+  appState.companion.streak = 0;
+  clearTimeout(appState.companion.idleTimer);
+  clearTimeout(appState.companion.errorTimer);
+  setCompanionEmotion('neutral', "Fresh start! Let's conquer this chapter 📖");
   updateMetricsDisplay();
 }
 
@@ -681,8 +1303,45 @@ function updateMetricsDisplay() {
 }
 
 // ============================================================
-// Keystroke Hot Path Evaluator with Case & Punctuation Leniency
+// Keystroke Hot Path Evaluator & Companion Emotional Reactor
 // ============================================================
+
+function onKeystrokeSuccess() {
+  appState.companion.streak++;
+  if (appState.companion.streak > appState.companion.maxStreak) {
+    appState.companion.maxStreak = appState.companion.streak;
+  }
+  if (appState.companion.streak === 15 || appState.companion.streak === 30 || appState.companion.streak === 50) {
+    playCompanionChirp('streak');
+  }
+  clearTimeout(appState.companion.errorTimer);
+  const emotion = appState.companion.streak >= 15 ? 'streak' : 'typing';
+  setCompanionEmotion(emotion);
+
+  clearTimeout(appState.companion.idleTimer);
+  appState.companion.idleTimer = setTimeout(() => {
+    if (appState.session.status === 'active' || appState.session.status === 'idle') {
+      setCompanionEmotion('idle');
+    }
+  }, 4200);
+}
+
+function onKeystrokeError() {
+  appState.companion.streak = 0;
+  clearTimeout(appState.companion.errorTimer);
+  setCompanionEmotion('error');
+  appState.companion.errorTimer = setTimeout(() => {
+    setCompanionEmotion('neutral');
+  }, 1400);
+
+  clearTimeout(appState.companion.idleTimer);
+  appState.companion.idleTimer = setTimeout(() => {
+    if (appState.session.status === 'active' || appState.session.status === 'idle') {
+      setCompanionEmotion('idle');
+    }
+  }, 4200);
+}
+
 function handleKeystroke(key) {
   const current = getCurrentChapter();
   if (!current) return;
@@ -753,6 +1412,7 @@ function handleKeystroke(key) {
       }
       playKeySound(false);
       animateKeyPressed(inputKey === '\n' ? 'Enter' : 'Space');
+      onKeystrokeSuccess();
       renderPracticeView();
       if (appState.session.currentIndex >= text.length) finishSession();
       return;
@@ -774,6 +1434,7 @@ function handleKeystroke(key) {
       });
       playKeySound(false);
       animateKeyPressed(inputKey);
+      onKeystrokeSuccess();
       renderPracticeView();
       if (appState.session.currentIndex >= text.length) finishSession();
       return;
@@ -824,6 +1485,7 @@ function handleKeystroke(key) {
 
       playKeySound(false);
       animateKeyPressed('Space');
+      onKeystrokeSuccess();
       renderPracticeView();
 
       if (appState.session.currentIndex >= text.length) {
@@ -848,6 +1510,7 @@ function handleKeystroke(key) {
       });
       playKeySound(false);
       animateKeyPressed(inputKey);
+      onKeystrokeSuccess();
       renderPracticeView();
 
       if (appState.session.currentIndex >= text.length) {
@@ -866,8 +1529,9 @@ function handleKeystroke(key) {
   playKeySound(!isCorrect);
   animateKeyPressed(inputKey);
 
-  // Error handling modes
+  // Error handling modes & companion reaction
   if (!isCorrect) {
+    onKeystrokeError();
     appState.session.errorsCount++;
     const keyLower = expectedChar.toLowerCase();
     if (!appState.analytics.weakKeys[keyLower]) {
@@ -880,6 +1544,8 @@ function handleKeystroke(key) {
       renderPracticeView();
       return;
     }
+  } else {
+    onKeystrokeSuccess();
   }
 
   // Update total key occurrence
@@ -917,6 +1583,15 @@ function finishSession() {
   appState.analytics.totalCharactersTyped += appState.session.currentIndex;
   appState.analytics.totalErrors += appState.session.errorsCount;
   persistState();
+
+  // Companion Victory Cheer & Celebration Animation
+  setCompanionEmotion('victory', "Incredible completion! 🎉");
+  playCompanionChirp('victory');
+  const completionAvatarBox = document.getElementById('completionAvatarBox');
+  if (completionAvatarBox) {
+    completionAvatarBox.innerHTML = generateAvatarSvg(appState.companion.persona, 'victory', appState.companion.streak);
+    completionAvatarBox.classList.add('avatar-victory');
+  }
 
   const current = getCurrentChapter();
   const accText = document.getElementById('metricAcc').textContent;
@@ -1673,6 +2348,54 @@ window.addEventListener('DOMContentLoaded', () => {
     persistState();
     renderPracticeView();
   });
+
+  // Settings changes: Companion Toggles & Persona
+  const settingShowAvatar = document.getElementById('settingShowAvatar');
+  if (settingShowAvatar) {
+    settingShowAvatar.addEventListener('change', (e) => {
+      appState.companion.enabled = e.target.checked;
+      persistState();
+      updateCompanionDisplay();
+    });
+  }
+
+  const settingAvatarSpeech = document.getElementById('settingAvatarSpeech');
+  if (settingAvatarSpeech) {
+    settingAvatarSpeech.addEventListener('change', (e) => {
+      appState.companion.speechEnabled = e.target.checked;
+      persistState();
+      updateCompanionDisplay();
+    });
+  }
+
+  const settingAvatarPersona = document.getElementById('settingAvatarPersona');
+  if (settingAvatarPersona) {
+    settingAvatarPersona.addEventListener('change', (e) => {
+      switchCompanionPersona(e.target.value);
+    });
+  }
+
+  // Interactive Companion Controls
+  const companionAvatarWrap = document.getElementById('companionAvatarWrap');
+  if (companionAvatarWrap) {
+    companionAvatarWrap.addEventListener('click', () => {
+      pokeCompanion();
+    });
+  }
+
+  const btnSwitchAvatar = document.getElementById('btnSwitchAvatar');
+  if (btnSwitchAvatar) {
+    btnSwitchAvatar.addEventListener('click', () => {
+      switchCompanionPersona();
+    });
+  }
+
+  const btnToggleCompanionMute = document.getElementById('btnToggleCompanionMute');
+  if (btnToggleCompanionMute) {
+    btnToggleCompanionMute.addEventListener('click', () => {
+      toggleCompanionSpeech();
+    });
+  }
 
   // In-Document Search
   document.getElementById('searchQueryInput').addEventListener('input', (e) => {
